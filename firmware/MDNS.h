@@ -7,7 +7,6 @@
 #include "Name.h"
 #include "TxtData.h"
 
-#define END_OF_NAME 0x0
 #define LOCAL_SUFFIX ".local."
 
 #define MDNS_PORT 5353
@@ -46,15 +45,15 @@
 
 class MDNS {
     public:
-        
+
         bool setHostname(String hostname);
-        
+
         bool setService(String service, uint16_t port, String instance);
-        
+
         bool addTXTEntry(String key, String value);
-        
+
         bool begin();
-    
+
         int processQueries();
 
     private:
@@ -65,7 +64,7 @@ class MDNS {
 
         Name names[NAME_COUNT];
         Name matchedName;
-        
+
         IPAddress ip;
         uint16_t port;
         TxtData txtData;

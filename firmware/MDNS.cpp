@@ -3,60 +3,60 @@
 bool MDNS::setHostname(String hostname) {
     // TODO: further validate hostname
     bool success = hostname.length() < 63;
-    
+
     if (success) {
         success = names[HOST_NAME].init(hostname + LOCAL_SUFFIX);
     }
-    
+
     return success;
 }
-        
+
 bool MDNS::setService(String service, uint16_t port, String instance) {
     // TODO: further validate service and instance names
     bool success = service != NULL && service.length() > 0 && service.length() < 63 && instance != NULL && instance.length() > 0 && instance.length() < 63;
-    
+
     if (success) {
         success = names[SERVICE_NAME].init(service + LOCAL_SUFFIX);
     }
 
     this->port = port;
-    
+
     if (success) {
         success = names[INSTANCE_NAME].init(instance + "." + service + LOCAL_SUFFIX);
     }
 
     return success;
 }
-        
+
 bool MDNS::addTXTEntry(String key, String value) {
     return txtData.addEntry(key, value);
 }
-        
+
 bool MDNS::begin() {
     bool success = true;
 
     // Wait for WiFi to connect
     while (!WiFi.ready()) {
     }
-    
+
     ip = WiFi.localIP();
     udp.begin(MDNS_PORT);
 
     // TODO: Probing + announcing
-    
-    return success;   
+
+    return success;
 }
-    
+
 int MDNS::processQueries() {
     uint16_t n = udp.parsePacket();
-    
+
     uint8_t responses = 0;
-    
+
     if (n > 0) {
         inBuffer.read(udp);
 
         udp.flush();
-        
+
         if (inBuffer.available() >= 12) {
             /*uint16_t id = */inBuffer.readUInt16();
             uint16_t flags = inBuffer.readUInt16();
@@ -64,32 +64,32 @@ int MDNS::processQueries() {
             /*uint16_t ancount = */inBuffer.readUInt16();
             /*uint16_t nscount = */inBuffer.readUInt16();
             /*uint16_t arcount = */inBuffer.readUInt16();
-            
+
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
                     if (matchedName.init(inBuffer)) {
-                        int8_t matchedName = matchName();
-                        
+                        int8_t matchedNameIdx = matchName();
+
                         uint16_t type = inBuffer.readUInt16();
                         uint16_t cls = inBuffer.readUInt16();
-                        
-                        Spark.publish("mdns/processQueries", "Query " + lastName + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
 
-                        switch (matchedName) {
+                        Spark.publish("mdns/processQueries", "Query " + matchedName.toString() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedNameIdx, 60, PRIVATE);
+
+                        switch (matchedNameIdx) {
                             case HOST_NAME:
                                 // TODO: Negative response for AAAA
-    
+
                                 if (type == A_TYPE || type == ANY_TYPE) {
                                     responses |= A_AN_FLAG;
                                 }
                                 break;
-                            
+
                             case SERVICE_NAME:
                                 if (type == PTR_TYPE || type == ANY_TYPE) {
                                     responses |= PTR_AN_FLAG | SRV_AD_FLAG | TXT_AD_FLAG | A_AD_FLAG;
                                 }
                                 break;
-                            
+
                             case INSTANCE_NAME:
                                 if (type == SRV_TYPE) {
                                     responses |= SRV_AN_FLAG | A_AD_FLAG;
@@ -99,7 +99,7 @@ int MDNS::processQueries() {
                                     responses |= SRV_AN_FLAG | TXT_AN_FLAG | A_AD_FLAG;
                                 }
                                 break;
-                                
+
                             default:
                                 break;
                         }
@@ -110,13 +110,13 @@ int MDNS::processQueries() {
             }
         }
     }
-            
+
     if (responses > 0) {
         responses &= ~(responses << 4);
-        
+
         uint8_t counts = (responses & 0x55) + ((responses >> 1) & 0x55);
         counts = (counts & 0x33) + ((counts >> 2) & 0x33);
-        
+
         Spark.publish("mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
 
         outBuffer.writeUInt16(0x0);
@@ -139,17 +139,17 @@ int MDNS::processQueries() {
             if ((responses & TXT_AN_FLAG) != 0) {
                 writeTXTRecord();
             }
-            
+
             responses >>= 4;
         }
 
         udp.beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
-        
+
         outBuffer.write(udp);
-        
+
         udp.endPacket();
     }
-    
+
     for (uint8_t i = 0; i < NAME_COUNT; i++) {
         names[i].reset();
     }
@@ -161,12 +161,12 @@ int8_t MDNS::matchName() {
     int8_t nameIndex = UNKNOWN_NAME;
 
     int idx = 0;
-    
+
     while (idx < NAME_COUNT && nameIndex == UNKNOWN_NAME) {
         if (matchedName == names[idx]) {
             nameIndex = idx;
         }
-        
+
         idx++;
     }
 
