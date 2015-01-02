@@ -1,0 +1,7 @@
+{
+"name": "spark-core-mdns",
+"author": "Mark Hornsby <me@markhornsby.uk>",
+"license": "MIT",
+"version": "0.0.1",
+"description": "Support for multicast name and DNS service registration"
+}
