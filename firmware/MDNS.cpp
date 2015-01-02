@@ -67,7 +67,7 @@ int MDNS::processQueries() {
             
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
-                    if (validName()) {
+                    if (matchedName.init(inBuffer)) {
                         int8_t matchedName = matchName();
                         
                         uint16_t type = inBuffer.readUInt16();
@@ -158,101 +158,19 @@ int MDNS::processQueries() {
 }
 
 int8_t MDNS::matchName() {
-    int8_t matchedName = UNKNOWN_NAME;
+    int8_t nameIndex = UNKNOWN_NAME;
+
+    int idx = 0;
     
-    lastName = "";
-    
-    uint8_t nameMask = (1 << NAME_COUNT) - 1;
-    
-    bool end = false;
-    
-    uint8_t idx = 0;
-    
-    uint8_t c = inBuffer.readUInt8();
-    
-    while (!end) {
-        while ((c & BACK_REF) == BACK_REF) {
-            uint16_t backReferenceOffset = (c & ~BACK_REF) << 8 | inBuffer.readUInt8();
-            
-            inBuffer.mark();
-            inBuffer.setOffset(backReferenceOffset);
-            c = inBuffer.readUInt8();
+    while (idx < NAME_COUNT && nameIndex == UNKNOWN_NAME) {
+        if (matchedName == names[idx]) {
+            nameIndex = idx;
         }
         
-        if (c == END_OF_NAME) {
-            end = true;
-        } else {
-            uint8_t len = c;
-            
-            for (int j = 0; j <= len; j++) {
-                for (uint8_t i = 0 ; i < NAME_COUNT; i++) {
-                    if ((nameMask & (1 << i)) != 0 && names[i].match(c)) {
-                        nameMask &= ~(1 << i);
-                    }
-                }
-                
-                if (j != 0) {
-                    lastName += (char) c;
-                }
-                
-                idx++;
-                
-                c = inBuffer.readUInt8();
-            }
-            
-            lastName += '.';
-        }
-    }
-    
-    inBuffer.reset();
-    
-    for (uint8_t i = 0; i < NAME_COUNT; i++) {
-        names[i].reset();
-    }
-    
-    if (nameMask > 0) {
-        matchedName++;
-        
-        while ((nameMask & 0x1) == 0) {
-            nameMask >>= 1;
-            matchedName++;
-        }
+        idx++;
     }
 
-    return matchedName;
-}
-
-bool MDNS::validName() {
-    bool valid = inBuffer.available() > 0;
-
-    if (valid) {
-        inBuffer.mark();
-    
-        uint8_t c = inBuffer.readUInt8();
-            
-        bool end = false;
-    
-        while (!end) {
-            if ((c & BACK_REF) == BACK_REF) {
-                valid = inBuffer.available() > 0;
-                end = true;
-            }
-            
-            if (c == END_OF_NAME) {
-                end = true;
-            } else {
-                valid = inBuffer.available() > c;
-                
-                inBuffer.setOffset(inBuffer.getOffset() + c);
-
-                c = inBuffer.readUInt8();
-            }
-        }
-        
-        inBuffer.reset();
-    }
-    
-    return valid;
+    return nameIndex;
 }
 
 void MDNS::writeARecord() {
