@@ -3,6 +3,10 @@
 bool Name::init(String name) {
     size = name.length() + 1;
     
+    if (data) {
+        free(data);
+    }
+    
     data = (uint8_t *) malloc(size);
 
     if (data != NULL) {
@@ -24,7 +28,65 @@ bool Name::init(String name) {
     
     return data != NULL;    
 }
+
+bool Name::init(Buffer buffer) {
+    bool success = buffer.available();
+    
+    if (success) {
+        if (data) {
+            free(data);
+        }
         
+        data = (uint8_t *) malloc(255);
+        
+        success = data;
+    }
+    
+    if (success) {
+        uint8_t c = buffer.readUInt8();
+        
+        uint8_t idx = 0;
+        
+        while (c != END_OF_NAME) {
+            while ((c & BACK_REF) == BACK_REF) {
+                success = buffer.available() > 0;
+                
+                if (success) {
+                    uint16_t backReferenceOffset = (c & ~BACK_REF) << 8 | buffer.readUInt8();
+                
+                    success = backReferenceOffset < buffer.getOffset();
+                    
+                    if (success) {
+                        buffer.mark();
+                        buffer.setOffset(backReferenceOffset);
+                        c = inBuffer.readUInt8();
+                    }
+                }
+            }
+            
+            if (success && buffer.available() > c) {
+                data[idx++] = c;
+                
+                for (int i = 0; i < c; i++) {
+                    data[idx++] = buffer.readUInt8();
+                }
+                
+                c = inBuffer.readUInt8();
+            }
+        }
+        
+        data[idx++] = c;
+        
+        inBuffer.reset();
+    }
+    
+    if (!success && data) {
+        free(data);
+    }
+    
+    size = idx;
+}
+
 uint8_t Name::getSize() {
     return size;
 }
@@ -51,4 +113,22 @@ void Name::reset() {
     matches = true;
     matchOffset = 0;
     writtenOffset = 0;
+}
+
+bool Name::operator==(const Name &other) const {
+    bool equal = size == other->size;
+    
+    if (equal) {
+        int idx = 0;
+        
+        while (equal && idx < size) {
+            equal &= data[idx] == other->data[idx];
+        }
+    }
+    
+    return equal;
+}
+
+bool Name::operator!=(const Name &other) const {
+    return !(*this == other);
 }
