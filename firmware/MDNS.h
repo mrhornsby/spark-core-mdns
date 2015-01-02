@@ -64,14 +64,12 @@ class MDNS {
         Buffer outBuffer = Buffer(BUFFER_SIZE);
 
         Name names[NAME_COUNT];
+        Name matchedName;
         
         IPAddress ip;
         uint16_t port;
         TxtData txtData;
-        
-        String lastName;
-        
-        bool validName();
+
         int8_t matchName();
 
         void writeARecord();
