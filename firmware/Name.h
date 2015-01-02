@@ -11,6 +11,8 @@ class Name {
     public:
         bool init(String hostname);
         
+        bool init(Buffer buffer);
+        
         uint8_t getSize();
         
         bool match(uint8_t c);
