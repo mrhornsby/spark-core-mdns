@@ -30,7 +30,7 @@ uint8_t Name::getSize() {
 }
 
 bool Name::match(uint8_t c) {
-    matches &= data[matchOffset++] = c;
+    matches = matches && matchOffset < size && data[matchOffset++] == c;
     
     return matches;
 }
