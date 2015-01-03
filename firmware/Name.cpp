@@ -134,6 +134,8 @@ String Name::toString() {
 }
 
 bool Name::operator==(const Name &other) const {
+    Spark.publish("mdns/==", this.toString() + " " + other.toString());
+    
     bool equal = size == other.size;
 
     if (equal) {
