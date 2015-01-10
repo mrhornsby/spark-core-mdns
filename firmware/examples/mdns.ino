@@ -1,18 +1,19 @@
-#import "MDNS.h"
+// This #include statement was automatically added by the Spark IDE.
+#include "MDNS.h"
 
 #define HTTP_PORT 80
 
 MDNS mdns;
 
-String html = "<html><body><h1>Ok!</h1></body></html>";
-
 TCPServer server = TCPServer(HTTP_PORT);
 
 void setup() {
+    server.begin();
+
     bool success = mdns.setHostname("core-1");
 
     if (success) {
-        success = mdns.setService("_http._tcp", HTTP_PORT, "Core 1");
+        success = mdns.setService("tcp", "http", HTTP_PORT, "Core 1");
     }
 
     if (success) {
@@ -36,8 +37,7 @@ void loop() {
     TCPClient client = server.available();
 
     if (client){
-        client.println(html);
-        client.println();
+        client.println("<html><body><h1>Ok!</h1></body></html>\n\n");
         client.flush();
         client.stop();
     }
