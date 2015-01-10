@@ -4,24 +4,18 @@
 #define _INCL_MDNS
 
 #include "Buffer.h"
-#include "Name.h"
+#include "Label.h"
 #include "TxtData.h"
-
-#define LOCAL_SUFFIX ".local."
 
 #define MDNS_PORT 5353
 
 #define BUFFER_SIZE 512
 #define IP_SIZE 4
 
-// hostname, service name and instance name
-#define NAME_COUNT 3
-
-#define UNKNOWN_NAME -1
-
 #define HOST_NAME 0
 #define SERVICE_NAME 1
 #define INSTANCE_NAME 2
+#define NAME_COUNT 3
 
 #define A_TYPE 0x01
 #define PTR_TYPE 0x0c
@@ -48,7 +42,7 @@ class MDNS {
 
         bool setHostname(String hostname);
 
-        bool setService(String service, uint16_t port, String instance);
+        bool setService(String protocol, String service, uint16_t port, String instance);
 
         bool addTXTEntry(String key, String value);
 
@@ -59,23 +53,24 @@ class MDNS {
     private:
 
         UDP udp;
-        Buffer inBuffer = Buffer(BUFFER_SIZE);
-        Buffer outBuffer = Buffer(BUFFER_SIZE);
+        Buffer * inBuffer = new Buffer(BUFFER_SIZE);
+        Buffer * outBuffer = new Buffer(BUFFER_SIZE);
 
-        Name names[NAME_COUNT];
-        Name matchedName;
+        Label * ROOT = new Label("");
+        Label * LOCAL = new Label("local", ROOT);
+        Label * labels[NAME_COUNT];
+        Label::Matcher * matcher = new Label::Matcher(labels, NAME_COUNT);
 
-        IPAddress ip;
         uint16_t port;
-        TxtData txtData;
-
-        int8_t matchName();
+        TxtData * txtData = new TxtData();
 
         void writeARecord();
         void writePTRRecord();
         void writeSRVRecord();
         void writeTXTRecord();
         void writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl);
+        bool isAlphaDigitHyphen(String string);
+        bool isNetUnicode(String string);
 };
 
 #endif

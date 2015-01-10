@@ -31,7 +31,7 @@ uint16_t Buffer::getOffset() {
 }
 
 void Buffer::read(UDP udp) {
-    offset = 0;    
+    offset = 0;
     limit = udp.read(data, size);
 }
 
@@ -63,6 +63,6 @@ void Buffer::writeUInt32(uint32_t value) {
 
 void Buffer::write(UDP udp) {
     udp.write(data, offset);
-    
+
     offset = 0;
 }
