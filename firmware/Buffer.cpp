@@ -6,7 +6,7 @@ Buffer::Buffer(uint16_t size) {
 }
 
 uint16_t Buffer::available() {
-    return offset < limit? limit - offset : 0;
+    return offset < limit? limit - offset : offset - limit;
 }
 
 void Buffer::mark() {
@@ -30,9 +30,9 @@ uint16_t Buffer::getOffset() {
     return offset;
 }
 
-void Buffer::read(UDP udp) {
+void Buffer::read(UDP * udp) {
     offset = 0;
-    limit = udp.read(data, size);
+    limit = udp->read(data, size);
 }
 
 uint8_t Buffer::readUInt8() {
@@ -61,8 +61,13 @@ void Buffer::writeUInt32(uint32_t value) {
     writeUInt8(value);
 }
 
-void Buffer::write(UDP udp) {
-    udp.write(data, offset);
+void Buffer::write(UDP * udp) {
+    udp->write(data, offset);
 
     offset = 0;
+}
+
+void Buffer::clear() {
+    offset = 0;
+    limit = 0;
 }

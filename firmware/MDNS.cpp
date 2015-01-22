@@ -50,7 +50,7 @@ bool MDNS::begin() {
     while (!WiFi.ready()) {
     }
 
-    udp.begin(MDNS_PORT);
+    udp->begin(MDNS_PORT);
 
     // TODO: Probing + announcing
 
@@ -58,33 +58,34 @@ bool MDNS::begin() {
 }
 
 int MDNS::processQueries() {
-    uint16_t n = udp.parsePacket();
+    uint16_t n = udp->parsePacket();
 
     uint8_t responses = 0;
 
     if (n > 0) {
-        inBuffer->read(udp);
+        buffer->read(udp);
 
-        udp.flush();
+        udp->flush();
+        udp->stop();
 
-        if (inBuffer->available() >= 12) {
-            /*uint16_t id = */inBuffer->readUInt16();
-            uint16_t flags = inBuffer->readUInt16();
-            uint16_t qdcount = inBuffer->readUInt16();
-            /*uint16_t ancount = */inBuffer->readUInt16();
-            /*uint16_t nscount = */inBuffer->readUInt16();
-            /*uint16_t arcount = */inBuffer->readUInt16();
+        if (buffer->available() >= 12) {
+            /*uint16_t id = */buffer->readUInt16();
+            uint16_t flags = buffer->readUInt16();
+            uint16_t qdcount = buffer->readUInt16();
+            /*uint16_t ancount = */buffer->readUInt16();
+            /*uint16_t nscount = */buffer->readUInt16();
+            /*uint16_t arcount = */buffer->readUInt16();
 
-            Spark.publish("mdns/processQueries", "Query " + String(flags, HEX) + " " + String(qdcount, HEX), 60, PRIVATE);
+            Spark.publish("splunk/mdns/processQueries", "Query " + String(flags, HEX) + " " + String(qdcount, HEX), 60, PRIVATE);
 
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
-                    int8_t matchedName = matcher->match(inBuffer);
+                    int8_t matchedName = matcher->match(buffer);
 
-                    uint16_t type = inBuffer->readUInt16();
-                    uint16_t cls = inBuffer->readUInt16();
+                    uint16_t type = buffer->readUInt16();
+                    uint16_t cls = buffer->readUInt16();
 
-                    Spark.publish("mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
+                    Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
 
                     if (matchedName >= 0) {
 
@@ -122,92 +123,97 @@ int MDNS::processQueries() {
                 }
             }
         }
-    }
 
-    if (responses > 0) {
-        // Reset output offsets for name compression
-        for (uint8_t i = 0; i < NAME_COUNT; i++) {
-            labels[i]->reset();
+        buffer->clear();
+
+        if (responses > 0) {
+            // Reset output offsets for name compression
+            for (uint8_t i = 0; i < NAME_COUNT; i++) {
+                labels[i]->reset();
+            }
+
+            // Don't send additional responses where we are already sending answers
+            responses &= ~(responses << 4);
+
+            // Counting trick
+            uint8_t counts = (responses & 0x55) + ((responses >> 1) & 0x55);
+            counts = (counts & 0x33) + ((counts >> 2) & 0x33);
+
+            Spark.publish("splunk/mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
+
+            buffer->writeUInt16(0x0);
+            buffer->writeUInt16(0x8400);
+            buffer->writeUInt16(0x0);
+            buffer->writeUInt16(counts & 0x3);
+            buffer->writeUInt16(0x0);
+            buffer->writeUInt16(counts >> 4);
+
+            while (responses > 0) {
+                if ((responses & A_AN_FLAG) != 0) {
+                    writeARecord();
+                }
+                if ((responses & PTR_AN_FLAG) != 0) {
+                    writePTRRecord();
+                }
+                if ((responses & SRV_AN_FLAG) != 0) {
+                    writeSRVRecord();
+                }
+                if ((responses & TXT_AN_FLAG) != 0) {
+                    writeTXTRecord();
+                }
+
+                responses >>= 4;
+            }
         }
 
-        // Don't send additional responses where we are already sending answers
-        responses &= ~(responses << 4);
+        udp->begin(MDNS_PORT);
 
-        // Counting trick
-        uint8_t counts = (responses & 0x55) + ((responses >> 1) & 0x55);
-        counts = (counts & 0x33) + ((counts >> 2) & 0x33);
+        if (buffer->available() > 0) {
+            udp->beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
 
-        Spark.publish("mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
+            buffer->write(udp);
 
-        outBuffer->writeUInt16(0x0);
-        outBuffer->writeUInt16(0x8400);
-        outBuffer->writeUInt16(0x0);
-        outBuffer->writeUInt16(counts & 0x3);
-        outBuffer->writeUInt16(0x0);
-        outBuffer->writeUInt16(counts >> 4);
-
-        while (responses > 0) {
-            if ((responses & A_AN_FLAG) != 0) {
-                writeARecord();
-            }
-            if ((responses & PTR_AN_FLAG) != 0) {
-                writePTRRecord();
-            }
-            if ((responses & SRV_AN_FLAG) != 0) {
-                writeSRVRecord();
-            }
-            if ((responses & TXT_AN_FLAG) != 0) {
-                writeTXTRecord();
-            }
-
-            responses >>= 4;
+            udp->endPacket();
         }
-
-        udp.beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
-
-        outBuffer->write(udp);
-
-        udp.endPacket();
     }
-
 
     return n;
 }
 
 void MDNS::writeARecord() {
     writeRecord(HOST_NAME, A_TYPE, TTL_2MIN);
-    outBuffer->writeUInt16(4);
+    buffer->writeUInt16(4);
     IPAddress ip = WiFi.localIP();
     for (int i = 0; i < IP_SIZE; i++) {
-        outBuffer->writeUInt8(ip[i]);
+        buffer->writeUInt8(ip[i]);
     }
 }
 
 void MDNS::writePTRRecord() {
     writeRecord(SERVICE_NAME, PTR_TYPE, TTL_75MIN);
-    outBuffer->writeUInt16(labels[INSTANCE_NAME]->getWriteSize());
-    labels[INSTANCE_NAME]->write(outBuffer);
+    buffer->writeUInt16(labels[INSTANCE_NAME]->getWriteSize());
+    labels[INSTANCE_NAME]->write(buffer);
 }
 
 void MDNS::writeSRVRecord() {
     writeRecord(INSTANCE_NAME, SRV_TYPE, TTL_2MIN);
-    outBuffer->writeUInt16(6 + labels[HOST_NAME]->getWriteSize());
-    outBuffer->writeUInt16(0);
-    outBuffer->writeUInt16(0);
-    outBuffer->writeUInt16(port);
-    labels[HOST_NAME]->write(outBuffer);
+    buffer->writeUInt16(6 + labels[HOST_NAME]->getWriteSize());
+    buffer->writeUInt16(0);
+    buffer->writeUInt16(0);
+    buffer->writeUInt16(port);
+    labels[HOST_NAME]->write(buffer);
 }
 
 void MDNS::writeTXTRecord() {
     writeRecord(INSTANCE_NAME, TXT_TYPE, TTL_75MIN);
-    txtData->write(outBuffer);
+    txtData->write(buffer);
 }
 
 void MDNS::writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl) {
-    labels[nameIndex]->write(outBuffer);
-    outBuffer->writeUInt16(type);
-    outBuffer->writeUInt16(IN_CLASS);
-    outBuffer->writeUInt32(ttl);
+    labels[nameIndex]->write(buffer);
+    buffer->writeUInt16(type);
+    buffer->writeUInt16(IN_CLASS);
+    buffer->writeUInt32(ttl);
 }
 
 bool MDNS::isAlphaDigitHyphen(String string) {

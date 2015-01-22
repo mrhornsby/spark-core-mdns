@@ -16,16 +16,18 @@ class Buffer {
         void setOffset(uint16_t offset);
         uint16_t getOffset();
 
-        void read(UDP udp);
+        void read(UDP * udp);
 
         uint8_t readUInt8();
         uint16_t readUInt16();
 
-        void write(UDP udp);
+        void write(UDP * udp);
 
         void writeUInt8(uint8_t value);
         void writeUInt16(uint16_t value);
         void writeUInt32(uint32_t value);
+
+        void clear();
 
     private:
 

@@ -52,9 +52,8 @@ class MDNS {
 
     private:
 
-        UDP udp;
-        Buffer * inBuffer = new Buffer(BUFFER_SIZE);
-        Buffer * outBuffer = new Buffer(BUFFER_SIZE);
+        UDP * udp = new UDP();
+        Buffer * buffer = new Buffer(BUFFER_SIZE);
 
         Label * ROOT = new Label("");
         Label * LOCAL = new Label("local", ROOT);
