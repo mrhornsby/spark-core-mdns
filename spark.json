@@ -2,6 +2,6 @@
 "name": "MDNS",
 "author": "Mark Hornsby <me@markhornsby.uk>",
 "license": "MIT",
-"version": "0.0.1",
+"version": "1.0.0",
 "description": "Support for multicast name and DNS service registration"
 }
