@@ -1,6 +1,6 @@
 #include "Label.h"
 
-Label::Label(String name, Label * nextLabel) {
+Label::Label(String name, Label * nextLabel, bool caseSensitive) {
     data = (uint8_t *) malloc(name.length() + 1);
 
     if (data) {
@@ -13,6 +13,7 @@ Label::Label(String name, Label * nextLabel) {
     }
 
     this->nextLabel = nextLabel;
+    this->caseSensitive = caseSensitive;
 }
 
 uint8_t Label::getSize() {
@@ -112,7 +113,7 @@ void Label::Iterator::match(uint8_t c) {
             offset = 0;
         }
 
-        matches = offset <= size && label && label->data[offset] == c;
+        matches = offset <= size && label && (label->data[offset] == c || (!label->caseSensitive && equalsIgnoreCase(c)));
 
         offset++;
     }
@@ -120,6 +121,10 @@ void Label::Iterator::match(uint8_t c) {
 
 bool Label::Iterator::matched() {
     return matches;
+}
+
+bool Label::Iterator::equalsIgnoreCase(uint8_t c) {
+    return (c >= 'a' && c <= 'z' && label->data[offset] == c - 32) || (c >= 'A' && c <= 'Z' && label->data[offset] == c + 32);
 }
 
 Label::Matcher::Matcher(Label ** labels, uint8_t labelCount) {

@@ -31,7 +31,7 @@ bool MDNS::setService(String protocol, String service, uint16_t port, String ins
     }
 
     if (success) {
-        labels[INSTANCE_NAME] = new Label(instance, labels[SERVICE_NAME]);
+        labels[INSTANCE_NAME] = new Label(instance, labels[SERVICE_NAME], true);
 
         success = labels[INSTANCE_NAME]->getSize() == instance.length();
     }

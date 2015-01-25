@@ -36,7 +36,7 @@ class Label {
                 String lastName;
         };
 
-        Label(String name, Label * nextLabel = NULL);
+        Label(String name, Label * nextLabel = NULL, bool caseSensitive = false);
 
         uint8_t getSize();
 
@@ -74,10 +74,13 @@ class Label {
                 uint8_t size;
                 uint8_t offset = 0;
                 bool matches = true;
+
+                bool equalsIgnoreCase(uint8_t c);
         };
 
-        uint8_t * EMPTY_DATA= { END_OF_NAME };
+        uint8_t * EMPTY_DATA = { END_OF_NAME };
         uint8_t * data;
+        bool caseSensitive;
         Label * nextLabel;
         int16_t writeOffset = INVALID_OFFSET;
 };
