@@ -61,9 +61,12 @@ int MDNS::processQueries() {
     uint16_t n = udp->parsePacket();
 
     uint8_t responses = 0;
+    uint16_t remotePort = 0;
 
     if (n > 0) {
         buffer->read(udp);
+        
+        remotePort = udp->remotePort();
 
         udp->flush();
         udp->stop();
@@ -76,7 +79,7 @@ int MDNS::processQueries() {
             /*uint16_t nscount = */buffer->readUInt16();
             /*uint16_t arcount = */buffer->readUInt16();
 
-            Spark.publish("splunk/mdns/processQueries", "Query " + String(flags, HEX) + " " + String(qdcount, HEX), 60, PRIVATE);
+            // Spark.publish("splunk/mdns/processQueries", "Query " + String(flags, HEX) + " " + String(qdcount, HEX), 60, PRIVATE);
 
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
@@ -85,7 +88,7 @@ int MDNS::processQueries() {
                     uint16_t type = buffer->readUInt16();
                     uint16_t cls = buffer->readUInt16();
 
-                    Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
+                    // Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
 
                     if (matchedName >= 0) {
 
@@ -139,7 +142,7 @@ int MDNS::processQueries() {
             uint8_t counts = (responses & 0x55) + ((responses >> 1) & 0x55);
             counts = (counts & 0x33) + ((counts >> 2) & 0x33);
 
-            Spark.publish("splunk/mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
+            // Spark.publish("splunk/mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
 
             buffer->writeUInt16(0x0);
             buffer->writeUInt16(0x8400);
@@ -169,7 +172,7 @@ int MDNS::processQueries() {
         udp->begin(MDNS_PORT);
 
         if (buffer->available() > 0) {
-            udp->beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
+            udp->beginPacket(IPAddress(224, 0, 0, 251), remotePort);
 
             buffer->write(udp);
 
