@@ -84,6 +84,7 @@ int MDNS::processQueries() {
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
                     int8_t matchedName = matcher->match(buffer);
+                    if (buffer->available() < 4) break;
 
                     uint16_t type = buffer->readUInt16();
                     uint16_t cls = buffer->readUInt16();
