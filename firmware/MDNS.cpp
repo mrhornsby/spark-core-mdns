@@ -84,45 +84,46 @@ int MDNS::processQueries() {
             if ((flags & 0x8000) == 0) {
                 while (qdcount-- > 0) {
                     int8_t matchedName = matcher->match(buffer);
-                    if (buffer->available() < 4) break;
+                    
+                    if (buffer->available() >= 4) {
+                        uint16_t type = buffer->readUInt16();
+                        uint16_t cls = buffer->readUInt16();
 
-                    uint16_t type = buffer->readUInt16();
-                    uint16_t cls = buffer->readUInt16();
+                        // Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
 
-                    // Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
-
-                    if (matchedName >= 0) {
-
-                        switch (matchedName) {
-                            case HOST_NAME:
-                                // TODO: Negative response for AAAA
-
-                                if (type == A_TYPE || type == ANY_TYPE) {
-                                    responses |= A_AN_FLAG;
-                                }
-                                break;
-
-                            case SERVICE_NAME:
-                                if (type == PTR_TYPE || type == ANY_TYPE) {
-                                    responses |= PTR_AN_FLAG | SRV_AD_FLAG | TXT_AD_FLAG | A_AD_FLAG;
-                                }
-                                break;
-
-                            case INSTANCE_NAME:
-                                if (type == SRV_TYPE) {
-                                    responses |= SRV_AN_FLAG | A_AD_FLAG;
-                                } else if (type == TXT_TYPE) {
-                                    responses |= TXT_AN_FLAG;
-                                } else if (type == ANY_TYPE) {
-                                    responses |= SRV_AN_FLAG | TXT_AN_FLAG | A_AD_FLAG;
-                                }
-                                break;
-
-                            default:
-                                break;
+                        if (matchedName >= 0) {
+    
+                            switch (matchedName) {
+                                case HOST_NAME:
+                                    // TODO: Negative response for AAAA
+    
+                                    if (type == A_TYPE || type == ANY_TYPE) {
+                                        responses |= A_AN_FLAG;
+                                    }
+                                    break;
+    
+                                case SERVICE_NAME:
+                                    if (type == PTR_TYPE || type == ANY_TYPE) {
+                                        responses |= PTR_AN_FLAG | SRV_AD_FLAG | TXT_AD_FLAG | A_AD_FLAG;
+                                    }
+                                    break;
+    
+                                case INSTANCE_NAME:
+                                    if (type == SRV_TYPE) {
+                                        responses |= SRV_AN_FLAG | A_AD_FLAG;
+                                    } else if (type == TXT_TYPE) {
+                                        responses |= TXT_AN_FLAG;
+                                    } else if (type == ANY_TYPE) {
+                                        responses |= SRV_AN_FLAG | TXT_AN_FLAG | A_AD_FLAG;
+                                    }
+                                    break;
+    
+                                default:
+                                    break;
+                            }
+                        } else if (matchedName == BUFFER_UNDERFLOW) {
+                            qdcount = 0;
                         }
-                    } else if (matchedName == BUFFER_UNDERFLOW) {
-                        qdcount = 0;
                     }
                 }
             }
