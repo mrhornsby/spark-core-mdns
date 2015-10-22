@@ -51,122 +51,28 @@ bool MDNS::begin() {
     }
 
     udp->begin(MDNS_PORT);
+    udp->joinMulticast(IPAddress(224, 0, 0, 251));
 
     // TODO: Probing + announcing
 
     return true;
 }
 
-int MDNS::processQueries() {
+bool MDNS::processQueries() {
     uint16_t n = udp->parsePacket();
-
-    uint8_t responses = 0;
 
     if (n > 0) {
         buffer->read(udp);
 
         udp->flush();
-        udp->stop();
 
-        if (buffer->available() >= 12) {
-            /*uint16_t id = */buffer->readUInt16();
-            uint16_t flags = buffer->readUInt16();
-            uint16_t qdcount = buffer->readUInt16();
-            /*uint16_t ancount = */buffer->readUInt16();
-            /*uint16_t nscount = */buffer->readUInt16();
-            /*uint16_t arcount = */buffer->readUInt16();
-
-            Spark.publish("splunk/mdns/processQueries", "Query " + String(flags, HEX) + " " + String(qdcount, HEX), 60, PRIVATE);
-
-            if ((flags & 0x8000) == 0) {
-                while (qdcount-- > 0) {
-                    int8_t matchedName = matcher->match(buffer);
-
-                    uint16_t type = buffer->readUInt16();
-                    uint16_t cls = buffer->readUInt16();
-
-                    Spark.publish("splunk/mdns/processQueries", "Query " + matcher->getLastName() + " " + String(type, HEX) + " " + String(cls, HEX) + " " + matchedName, 60, PRIVATE);
-
-                    if (matchedName >= 0) {
-
-                        switch (matchedName) {
-                            case HOST_NAME:
-                                // TODO: Negative response for AAAA
-
-                                if (type == A_TYPE || type == ANY_TYPE) {
-                                    responses |= A_AN_FLAG;
-                                }
-                                break;
-
-                            case SERVICE_NAME:
-                                if (type == PTR_TYPE || type == ANY_TYPE) {
-                                    responses |= PTR_AN_FLAG | SRV_AD_FLAG | TXT_AD_FLAG | A_AD_FLAG;
-                                }
-                                break;
-
-                            case INSTANCE_NAME:
-                                if (type == SRV_TYPE) {
-                                    responses |= SRV_AN_FLAG | A_AD_FLAG;
-                                } else if (type == TXT_TYPE) {
-                                    responses |= TXT_AN_FLAG;
-                                } else if (type == ANY_TYPE) {
-                                    responses |= SRV_AN_FLAG | TXT_AN_FLAG | A_AD_FLAG;
-                                }
-                                break;
-
-                            default:
-                                break;
-                        }
-                    } else if (matchedName == BUFFER_UNDERFLOW) {
-                        qdcount = 0;
-                    }
-                }
-            }
-        }
+        uint16_t responses = getResponses();
 
         buffer->clear();
 
         if (responses > 0) {
-            // Reset output offsets for name compression
-            for (uint8_t i = 0; i < NAME_COUNT; i++) {
-                labels[i]->reset();
-            }
-
-            // Don't send additional responses where we are already sending answers
-            responses &= ~(responses << 4);
-
-            // Counting trick
-            uint8_t counts = (responses & 0x55) + ((responses >> 1) & 0x55);
-            counts = (counts & 0x33) + ((counts >> 2) & 0x33);
-
-            Spark.publish("splunk/mdns/processQueries", "Response " + String(counts & 0x3) + " " + String(counts >> 4) + " " + String(responses, BIN), 60, PRIVATE);
-
-            buffer->writeUInt16(0x0);
-            buffer->writeUInt16(0x8400);
-            buffer->writeUInt16(0x0);
-            buffer->writeUInt16(counts & 0x3);
-            buffer->writeUInt16(0x0);
-            buffer->writeUInt16(counts >> 4);
-
-            while (responses > 0) {
-                if ((responses & A_AN_FLAG) != 0) {
-                    writeARecord();
-                }
-                if ((responses & PTR_AN_FLAG) != 0) {
-                    writePTRRecord();
-                }
-                if ((responses & SRV_AN_FLAG) != 0) {
-                    writeSRVRecord();
-                }
-                if ((responses & TXT_AN_FLAG) != 0) {
-                    writeTXTRecord();
-                }
-
-                responses >>= 4;
-            }
+            writeResponses(responses);
         }
-
-        udp->begin(MDNS_PORT);
 
         if (buffer->available() > 0) {
             udp->beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
@@ -177,7 +83,117 @@ int MDNS::processQueries() {
         }
     }
 
-    return n;
+    return n > 0;
+}
+
+uint16_t MDNS::getResponses() {
+    uint16_t responses = 0;
+
+    if (querySet) {
+        delete querySet;
+    }
+
+    querySet = new QuerySet();
+
+    if (querySet->readHeader(buffer)) {
+        if (querySet->isQuery()) {
+            uint8_t count = 0;
+
+            while (count++ < querySet->getQueryCount()) {
+                QuerySet::Query query;
+
+                query.matchedName = matcher->match(buffer);
+                query.name += matcher->getLastName();
+                query.type = buffer->readUInt16();
+                query.cls = buffer->readUInt16();
+
+                //querySet->addEntry(query);
+
+                if (query.matchedName >= 0) {
+                    switch (query.matchedName) {
+                        case HOST_NAME:
+                            if (query.type == A_TYPE || query.type == ANY_TYPE) {
+                                responses |= A_FLAG | ADDITIONAL(NSEC_HOST_FLAG);
+                            } else if (query.type == AAAA_TYPE) {
+                                responses |= NSEC_HOST_FLAG;
+                            }
+                            break;
+
+                        case SERVICE_NAME:
+                            if (query.type == PTR_TYPE || query.type == ANY_TYPE) {
+                                responses |= PTR_FLAG | ADDITIONAL(SRV_FLAG) | ADDITIONAL(TXT_FLAG) | ADDITIONAL(A_FLAG);
+                            }
+                            break;
+
+                        case INSTANCE_NAME:
+                            if (query.type == SRV_TYPE) {
+                                responses |= SRV_FLAG | ADDITIONAL(A_FLAG) | ADDITIONAL(NSEC_INSTANCE_FLAG);
+                            } else if (query.type == TXT_TYPE) {
+                                responses |= TXT_FLAG | ADDITIONAL(NSEC_INSTANCE_FLAG);
+                            } else if (query.type == ANY_TYPE) {
+                                responses |= SRV_FLAG | TXT_FLAG | ADDITIONAL(A_FLAG) | NSEC_INSTANCE_FLAG;
+                            }
+                            break;
+
+                        default:
+                            break;
+                    }
+                } else if (query.matchedName == BUFFER_UNDERFLOW) {
+                    querySet->setStatus("query " + String(count) + " buffer underflow");
+                    count = querySet->getQueryCount();
+                }
+            }
+        }
+    } else {
+        querySet->setStatus("header buffer underflow");
+    }
+
+    querySet->setResponses(responses);
+
+    return responses;
+}
+
+void MDNS::writeResponses(uint16_t responses) {
+    // Reset output offsets for name compression
+    for (uint8_t i = 0; i < NAME_COUNT; i++) {
+        labels[i]->reset();
+    }
+
+    // Don't send additional responses where we are already sending answers
+    responses &= ~(responses << FLAG_COUNT);
+
+    uint8_t answerCount = count(responses);
+    uint8_t additionalCount = count(responses >> FLAG_COUNT);
+
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(0x8400);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(answerCount);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(additionalCount);
+
+    while (responses > 0) {
+        if ((responses & A_FLAG) != 0) {
+            writeARecord();
+        }
+        if ((responses & PTR_FLAG) != 0) {
+            writePTRRecord();
+        }
+        if ((responses & SRV_FLAG) != 0) {
+            writeSRVRecord();
+        }
+        if ((responses & TXT_FLAG) != 0) {
+            writeTXTRecord();
+        }
+        if ((responses & NSEC_HOST_FLAG) != 0) {
+            writeNSECHostRecord();
+        }
+        if ((responses & NSEC_INSTANCE_FLAG) != 0) {
+            writeNSECInstanceRecord();
+        }
+
+        responses >>= FLAG_COUNT;
+    }
 }
 
 void MDNS::writeARecord() {
@@ -207,6 +223,28 @@ void MDNS::writeSRVRecord() {
 void MDNS::writeTXTRecord() {
     writeRecord(INSTANCE_NAME, TXT_TYPE, TTL_75MIN);
     txtData->write(buffer);
+}
+
+void MDNS::writeNSECHostRecord() {
+    writeRecord(HOST_NAME, NSEC_TYPE, TTL_2MIN);
+    buffer->writeUInt16(5);
+    labels[HOST_NAME]->write(buffer);
+    buffer->writeUInt8(0);
+    buffer->writeUInt8(1);
+    buffer->writeUInt8(0x40);
+}
+
+void MDNS::writeNSECInstanceRecord() {
+    writeRecord(INSTANCE_NAME, NSEC_TYPE, TTL_2MIN);
+    buffer->writeUInt16(9);
+    labels[INSTANCE_NAME]->write(buffer);
+    buffer->writeUInt8(0);
+    buffer->writeUInt8(5);
+    buffer->writeUInt8(0);
+    buffer->writeUInt8(0);
+    buffer->writeUInt8(0x80);
+    buffer->writeUInt8(0);
+    buffer->writeUInt8(0x40);
 }
 
 void MDNS::writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl) {
@@ -242,4 +280,20 @@ bool MDNS::isNetUnicode(String string) {
     }
 
     return result;
+}
+
+uint8_t MDNS::count(uint16_t bits) {
+    uint8_t count = 0;
+
+    for (uint8_t i = 0; i < FLAG_COUNT; i++) {
+        count += bits & 1;
+
+        bits >>= 1;
+    }
+
+    return count;
+}
+
+QuerySet * MDNS::getQuerySet() {
+    return querySet;
 }

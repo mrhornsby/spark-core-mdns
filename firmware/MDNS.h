@@ -5,6 +5,7 @@
 
 #include "Buffer.h"
 #include "Label.h"
+#include "QuerySet.h"
 #include "TxtData.h"
 
 #define MDNS_PORT 5353
@@ -19,8 +20,10 @@
 
 #define A_TYPE 0x01
 #define PTR_TYPE 0x0c
-#define SRV_TYPE 0x21
 #define TXT_TYPE 0x10
+#define AAAA_TYPE 0x1c
+#define SRV_TYPE 0x21
+#define NSEC_TYPE 0x2f
 #define ANY_TYPE 0xFF
 
 #define IN_CLASS 1
@@ -28,14 +31,16 @@
 #define TTL_2MIN 120
 #define TTL_75MIN 4500
 
-#define A_AN_FLAG 0x01
-#define PTR_AN_FLAG 0x02
-#define SRV_AN_FLAG 0x04
-#define TXT_AN_FLAG 0x08
-#define A_AD_FLAG 0x10
-#define PTR_AD_FLAG 0x20
-#define SRV_AD_FLAG 0x40
-#define TXT_AD_FLAG 0x80
+#define A_FLAG 0x01
+#define PTR_FLAG 0x02
+#define SRV_FLAG 0x04
+#define TXT_FLAG 0x08
+#define NSEC_HOST_FLAG 0x10
+#define NSEC_INSTANCE_FLAG 0x20
+
+#define FLAG_COUNT 6
+
+#define ADDITIONAL(a) a << 6
 
 class MDNS {
     public:
@@ -48,12 +53,16 @@ class MDNS {
 
         bool begin();
 
-        int processQueries();
+        bool processQueries();
+
+        QuerySet * getQuerySet();
 
     private:
 
         UDP * udp = new UDP();
         Buffer * buffer = new Buffer(BUFFER_SIZE);
+
+        QuerySet * querySet;
 
         Label * ROOT = new Label("");
         Label * LOCAL = new Label("local", ROOT);
@@ -63,13 +72,18 @@ class MDNS {
         uint16_t port;
         TxtData * txtData = new TxtData();
 
+        uint16_t getResponses();
+        void writeResponses(uint16_t responses);
         void writeARecord();
         void writePTRRecord();
         void writeSRVRecord();
         void writeTXTRecord();
+        void writeNSECHostRecord();
+        void writeNSECInstanceRecord();
         void writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl);
         bool isAlphaDigitHyphen(String string);
         bool isNetUnicode(String string);
+        uint8_t count(uint16_t bits);
 };
 
 #endif

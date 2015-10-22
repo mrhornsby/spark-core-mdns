@@ -23,12 +23,6 @@ void setup() {
     if (success) {
         success = mdns.begin();
     }
-
-    if (success) {
-        Spark.publish("mdns/setup", "success");
-    } else {
-        Spark.publish("mdns/setup", "error");
-    }
 }
 
 void loop() {
@@ -37,8 +31,7 @@ void loop() {
     TCPClient client = server.available();
 
     if (client){
-        client.println("<html><body><h1>Ok!</h1></body></html>\n\n");
-        client.flush();
+        client.write("200 Ok\n\n<html><body><h1>Ok again!</h1></body></html>\n\n");
         client.stop();
     }
 }
