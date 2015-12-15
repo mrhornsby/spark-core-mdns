@@ -1,5 +1,5 @@
 // This #include statement was automatically added by the Spark IDE.
-#include "MDNS.h"
+#include "MDNS/MDNS.h"
 
 #define HTTP_PORT 80
 
