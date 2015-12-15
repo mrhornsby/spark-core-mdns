@@ -1,4 +1,3 @@
-// This #include statement was automatically added by the Spark IDE.
 #include "MDNS/MDNS.h"
 
 #define HTTP_PORT 80
@@ -31,7 +30,10 @@ void loop() {
     TCPClient client = server.available();
 
     if (client){
-        client.write("200 Ok\n\n<html><body><h1>Ok again!</h1></body></html>\n\n");
+        while (client.read() != -1);
+        
+        client.write("HTTP/1.1 200 Ok\n\n<html><body><h1>Ok!</h1></body></html>\n\n");
+        client.flush();
         client.stop();
     }
 }
