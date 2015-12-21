@@ -34,6 +34,7 @@ void loop() {
         
         client.write("HTTP/1.1 200 Ok\n\n<html><body><h1>Ok!</h1></body></html>\n\n");
         client.flush();
+        delay(5);
         client.stop();
     }
 }
