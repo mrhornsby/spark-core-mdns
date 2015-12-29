@@ -15,9 +15,7 @@ void setup() {
     success = mdns.setService("tcp", "http", HTTP_PORT, "Core 1");
   }
 
-  if (success) {
-    success = mdns.addTXTEntry("coreid", "1");
-  }
+  mdns.addTXTEntry("coreid", "1");
 
   if (success) {
     success = mdns.begin();

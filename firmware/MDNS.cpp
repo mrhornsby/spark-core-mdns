@@ -41,8 +41,8 @@ bool MDNS::setService(String protocol, String service, uint16_t port, String ins
   return success;
 }
 
-bool MDNS::addTXTEntry(String key, String value) {
-  return txtData->addEntry(key, value);
+void MDNS::addTXTEntry(String key, String value) {
+  txtData->addEntry(key, value);
 }
 
 bool MDNS::begin() {
