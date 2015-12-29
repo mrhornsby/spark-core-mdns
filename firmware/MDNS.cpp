@@ -89,17 +89,12 @@ bool MDNS::processQueries() {
 uint16_t MDNS::getResponses() {
     uint16_t responses = 0;
 
-    if (querySet) {
-        delete querySet;
-    }
+    QueryHeader header = readHeader(buffer);
 
-    querySet = new QuerySet();
-
-    if (querySet->readHeader(buffer)) {
-        if (querySet->isQuery()) {
+        if ((header.flags & 0x8000) == 0 && header.qdcount > 0) {
             uint8_t count = 0;
 
-            while (count++ < querySet->getQueryCount()) {
+            while (count++ < header.qdcount) {
                 Query query;
 
                 query.matchedName = matcher->match(buffer);
@@ -139,18 +134,27 @@ uint16_t MDNS::getResponses() {
                             break;
                     }
                 } else if (query.matchedName == BUFFER_UNDERFLOW) {
-                    querySet->setStatus("query " + String(count) + " buffer underflow");
-                    count = querySet->getQueryCount();
+                    count = header.qdcount;
                 }
             }
         }
-    } else {
-        querySet->setStatus("header buffer underflow");
-    }
-
-    querySet->setResponses(responses);
 
     return responses;
+}
+
+MDNS::QueryHeader MDNS::readHeader(Buffer * buffer) {
+    QueryHeader header;
+
+    if (buffer->available() >= 12) {
+        header.id = buffer->readUInt16();
+        header.flags = buffer->readUInt16();
+        header.qdcount = buffer->readUInt16();
+        header.ancount = buffer->readUInt16();
+        header.nscount = buffer->readUInt16();
+        header.arcount = buffer->readUInt16();
+    }
+
+    return header;
 }
 
 void MDNS::writeResponses(uint16_t responses) {
@@ -292,8 +296,4 @@ uint8_t MDNS::count(uint16_t bits) {
     }
 
     return count;
-}
-
-QuerySet * MDNS::getQuerySet() {
-    return querySet;
 }

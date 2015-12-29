@@ -5,7 +5,6 @@
 
 #include "Buffer.h"
 #include "Label.h"
-#include "QuerySet.h"
 #include "TxtData.h"
 
 #define MDNS_PORT 5353
@@ -55,14 +54,19 @@ class MDNS {
 
         bool processQueries();
 
-        QuerySet * getQuerySet();
-
     private:
 
+      struct QueryHeader {
+        uint16_t id;
+        uint16_t flags;
+        uint16_t qdcount;
+        uint16_t ancount;
+        uint16_t nscount;
+        uint16_t arcount;
+      };
+        
         UDP * udp = new UDP();
         Buffer * buffer = new Buffer(BUFFER_SIZE);
-
-        QuerySet * querySet;
 
         Label * ROOT = new Label("");
         Label * LOCAL = new Label("local", ROOT);
@@ -72,6 +76,7 @@ class MDNS {
         uint16_t port;
         TxtData * txtData = new TxtData();
 
+        QueryHeader readHeader(Buffer * buffer);
         uint16_t getResponses();
         void writeResponses(uint16_t responses);
         void writeARecord();
