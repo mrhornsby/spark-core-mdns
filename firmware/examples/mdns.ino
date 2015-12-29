@@ -7,33 +7,33 @@ MDNS mdns;
 TCPServer server = TCPServer(HTTP_PORT);
 
 void setup() {
-    server.begin();
+  server.begin();
 
-    bool success = mdns.setHostname("core-1");
+  bool success = mdns.setHostname("core-1");
+  
+  if (success) {
+    success = mdns.setService("tcp", "http", HTTP_PORT, "Core 1");
+  }
 
-    if (success) {
-        success = mdns.setService("tcp", "http", HTTP_PORT, "Core 1");
-    }
+  if (success) {
+    success = mdns.addTXTEntry("coreid", "1");
+  }
 
-    if (success) {
-        success = mdns.addTXTEntry("coreid", "1");
-    }
-
-    if (success) {
-        success = mdns.begin();
-    }
+  if (success) {
+    success = mdns.begin();
+  }
 }
 
 void loop() {
-    mdns.processQueries();
+  mdns.processQueries();
 
-    TCPClient client = server.available();
+  TCPClient client = server.available();
 
-    if (client){
-        while (client.read() != -1);
-        
-        client.write("HTTP/1.1 200 Ok\n\n<html><body><h1>Ok!</h1></body></html>\n\n");
-        client.flush();
-        client.stop();
-    }
+  if (client){
+    while (client.read() != -1);
+
+    client.write("HTTP/1.1 200 Ok\n\n<html><body><h1>Ok!</h1></body></html>\n\n");
+    client.flush();
+    client.stop();
+  }
 }

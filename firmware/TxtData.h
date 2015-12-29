@@ -6,15 +6,15 @@
 #include "Buffer.h"
 
 class TxtData {
-    public:
-        bool addEntry(String key, String value);
+public:
+  bool addEntry(String key, String value);
 
-        void write(Buffer * buffer);
+  void write(Buffer * buffer);
 
-    private:
+private:
 
-        uint8_t * data;
-        uint16_t size = 0;
+  uint8_t * data;
+  uint16_t size = 0;
 };
 
 #endif

@@ -42,60 +42,60 @@
 #define ADDITIONAL(a) a << 6
 
 class MDNS {
-    public:
+public:
 
-        bool setHostname(String hostname);
+  bool setHostname(String hostname);
 
-        bool setService(String protocol, String service, uint16_t port, String instance);
+  bool setService(String protocol, String service, uint16_t port, String instance);
 
-        bool addTXTEntry(String key, String value);
+  bool addTXTEntry(String key, String value);
 
-        bool begin();
+  bool begin();
 
-        bool processQueries();
+  bool processQueries();
 
-    private:
+private:
 
-      struct QueryHeader {
-        uint16_t id;
-        uint16_t flags;
-        uint16_t qdcount;
-        uint16_t ancount;
-        uint16_t nscount;
-        uint16_t arcount;
-      };
-        
-        UDP * udp = new UDP();
-        Buffer * buffer = new Buffer(BUFFER_SIZE);
+  struct QueryHeader {
+    uint16_t id;
+    uint16_t flags;
+    uint16_t qdcount;
+    uint16_t ancount;
+    uint16_t nscount;
+    uint16_t arcount;
+  };
+  
+  UDP * udp = new UDP();
+  Buffer * buffer = new Buffer(BUFFER_SIZE);
 
-        Label * ROOT = new Label("");
-        Label * LOCAL = new Label("local", ROOT);
-        Label * labels[NAME_COUNT];
-        Label::Matcher * matcher = new Label::Matcher(labels, NAME_COUNT);
+  Label * ROOT = new Label("");
+  Label * LOCAL = new Label("local", ROOT);
+  Label * labels[NAME_COUNT];
+  Label::Matcher * matcher = new Label::Matcher(labels, NAME_COUNT);
 
-        uint16_t port;
-        TxtData * txtData = new TxtData();
+  uint16_t port;
+  TxtData * txtData = new TxtData();
 
-        QueryHeader readHeader(Buffer * buffer);
-        uint16_t getResponses();
-        void writeResponses(uint16_t responses);
-        void writeARecord();
-        void writePTRRecord();
-        void writeSRVRecord();
-        void writeTXTRecord();
-        void writeNSECHostRecord();
-        void writeNSECInstanceRecord();
-        void writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl);
-        bool isAlphaDigitHyphen(String string);
-        bool isNetUnicode(String string);
-        uint8_t count(uint16_t bits);
+  QueryHeader readHeader(Buffer * buffer);
+  uint16_t getResponses();
+  void writeResponses(uint16_t responses);
+  void writeARecord();
+  void writePTRRecord();
+  void writeSRVRecord();
+  void writeTXTRecord();
+  void writeNSECHostRecord();
+  void writeNSECInstanceRecord();
+  void writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl);
+  bool isAlphaDigitHyphen(String string);
+  bool isNetUnicode(String string);
+  uint8_t count(uint16_t bits);
 
-        struct Query {
-            int8_t matchedName;
-            String name;
-            uint16_t type;
-            uint16_t cls;
-        };
+  struct Query {
+    int8_t matchedName;
+    String name;
+    uint16_t type;
+    uint16_t cls;
+  };
 };
 
 #endif

@@ -16,73 +16,73 @@
 #define BUFFER_UNDERFLOW -2
 
 class Label {
-    private:
+private:
 
-        class Iterator;
+  class Iterator;
 
-    public:
-        class Matcher {
-            public:
-                Matcher(Label ** labels, uint8_t labelCount);
+public:
+  class Matcher {
+  public:
+    Matcher(Label ** labels, uint8_t labelCount);
 
-                int8_t match(Buffer * buffer);
+    int8_t match(Buffer * buffer);
 
-                String getLastName();
+    String getLastName();
 
-            private:
-                Label ** labels;
-                uint8_t labelCount;
+  private:
+    Label ** labels;
+    uint8_t labelCount;
 
-                String lastName;
-        };
+    String lastName;
+  };
 
-        Label(String name, Label * nextLabel = NULL, bool caseSensitive = false);
+  Label(String name, Label * nextLabel = NULL, bool caseSensitive = false);
 
-        uint8_t getSize();
+  uint8_t getSize();
 
-        uint8_t getWriteSize();
+  uint8_t getWriteSize();
 
-        void write(Buffer * buffer);
+  void write(Buffer * buffer);
 
-        void reset();
+  void reset();
 
-    private:
-        class Reader {
-            public:
-                Reader(Buffer * buffer);
+private:
+  class Reader {
+  public:
+    Reader(Buffer * buffer);
 
-                bool hasNext();
+    bool hasNext();
 
-                uint8_t next();
+    uint8_t next();
 
-                bool endOfName();
-            private:
-                Buffer * buffer;
-                uint8_t c = 1;
-        };
+    bool endOfName();
+  private:
+    Buffer * buffer;
+    uint8_t c = 1;
+  };
 
-        class Iterator {
-            public:
-                Iterator(Label * label);
+  class Iterator {
+  public:
+    Iterator(Label * label);
 
-                void match(uint8_t c);
+    void match(uint8_t c);
 
-                bool matched();
+    bool matched();
 
-            private:
-                Label * label;
-                uint8_t size;
-                uint8_t offset = 0;
-                bool matches = true;
+  private:
+    Label * label;
+    uint8_t size;
+    uint8_t offset = 0;
+    bool matches = true;
 
-                bool equalsIgnoreCase(uint8_t c);
-        };
+    bool equalsIgnoreCase(uint8_t c);
+  };
 
-        uint8_t * EMPTY_DATA = { END_OF_NAME };
-        uint8_t * data;
-        bool caseSensitive;
-        Label * nextLabel;
-        int16_t writeOffset = INVALID_OFFSET;
+  uint8_t * EMPTY_DATA = { END_OF_NAME };
+  uint8_t * data;
+  bool caseSensitive;
+  Label * nextLabel;
+  int16_t writeOffset = INVALID_OFFSET;
 };
 
 #endif
