@@ -1,46 +1,34 @@
 #include "TxtData.h"
 
-bool TxtData::addEntry(String key, String value) {
-  uint8_t * oldData = data;
-  uint16_t oldSize = size;
+void TxtData::addEntry(String key, String value) {
+  String entry = key;
 
-  uint8_t addedSize = key.length() + value.length() + 2;
-
-  size += addedSize;
-
-  data = (uint8_t *) malloc(size);
-
-  if (data) {
-    if (oldData) {
-      for (int i = 0; i < oldSize; i++) {
-        data[i] = oldData[i];
-      }
-    }
-    int idx = oldSize;
-
-    data[idx++] = addedSize - 1;
-
-    for (uint8_t i = 0; i < key.length(); i++) {
-      data[idx++] = key.charAt(i);
-    }
-
-    data[idx++] = '=';
-
-    for (uint8_t i = 0; i < value.length(); i++) {
-      data[idx++] = value.charAt(i);
-    }
+  if (value != NULL) {
+    entry += '=';
+    entry += value;
   }
 
-  if (oldData) {
-    free(oldData);
-  }
-
-  return data != NULL;
+  data.push_back(entry);
 }
 
 void TxtData::write(Buffer * buffer) {
+  uint16_t size = 0;
+
+  std::vector<String>::const_iterator i;
+
+  for(i = data.begin(); i != data.end(); ++i) {
+    size += i->length() + 1;
+  }
+
   buffer->writeUInt16(size);
-  for (uint16_t i = 0; i < size; i++) {
-    buffer->writeUInt8(data[i]);
+
+  for(i = data.begin(); i != data.end(); ++i) {
+    uint8_t length = i->length();
+
+    buffer->writeUInt8(length);
+
+    for (uint8_t idx = 0; idx < length; idx++) {
+      buffer->writeUInt8(i->charAt(idx));
+    }
   }
 }

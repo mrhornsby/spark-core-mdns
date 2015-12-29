@@ -48,7 +48,7 @@ public:
 
   bool setService(String protocol, String service, uint16_t port, String instance);
 
-  bool addTXTEntry(String key, String value);
+  void addTXTEntry(String key, String value = NULL);
 
   bool begin();
 
@@ -64,7 +64,7 @@ private:
     uint16_t nscount;
     uint16_t arcount;
   };
-  
+
   UDP * udp = new UDP();
   Buffer * buffer = new Buffer(BUFFER_SIZE);
 
