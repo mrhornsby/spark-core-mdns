@@ -100,7 +100,7 @@ uint16_t MDNS::getResponses() {
             uint8_t count = 0;
 
             while (count++ < querySet->getQueryCount()) {
-                QuerySet::Query query;
+                Query query;
 
                 query.matchedName = matcher->match(buffer);
                 query.name += matcher->getLastName();

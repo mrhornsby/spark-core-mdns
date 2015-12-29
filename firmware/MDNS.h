@@ -84,6 +84,13 @@ class MDNS {
         bool isAlphaDigitHyphen(String string);
         bool isNetUnicode(String string);
         uint8_t count(uint16_t bits);
+
+        struct Query {
+            int8_t matchedName;
+            String name;
+            uint16_t type;
+            uint16_t cls;
+        };
 };
 
 #endif

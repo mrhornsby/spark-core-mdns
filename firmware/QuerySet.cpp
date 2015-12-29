@@ -12,12 +12,6 @@ bool QuerySet::readHeader(Buffer * buffer) {
         arcount = buffer->readUInt16();
 
         entryCount = 0;
-
-        free(queries);
-
-        queries = (Query *) malloc(sizeof(Query) * qdcount);
-
-        success = queries;
     }
 
     return success;
@@ -51,24 +45,8 @@ uint16_t QuerySet::getAdditionalCount() {
     return arcount;
 }
 
-bool QuerySet::addEntry(Query query) {
-    bool success = false;
-
-    if (queries && entryCount < qdcount) {
-        queries[entryCount++] = query;
-
-        success = true;
-    }
-
-    return success;
-}
-
 uint8_t QuerySet::getEntryCount() {
     return entryCount;
-}
-
-QuerySet::Query QuerySet::getQuery(uint8_t index) {
-    return queries[index];
 }
 
 void QuerySet::setResponses(uint16_t responses) {
@@ -85,8 +63,4 @@ void QuerySet::setStatus(String status) {
 
 String QuerySet::getStatus() {
     return status;
-}
-
-QuerySet::~QuerySet() {
-    free(queries);
 }
