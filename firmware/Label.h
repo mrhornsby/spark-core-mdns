@@ -4,6 +4,8 @@
 #define _INCL_LABEL
 
 #include "Buffer.h"
+#include "Record.h"
+#include <vector>
 
 #define DOT '.'
 
@@ -23,17 +25,7 @@ private:
 public:
   class Matcher {
   public:
-    Matcher(Label ** labels, uint8_t labelCount);
-
-    int8_t match(Buffer * buffer);
-
-    String getLastName();
-
-  private:
-    Label ** labels;
-    uint8_t labelCount;
-
-    String lastName;
+    Label * match(std::vector<Label *> labels, Buffer * buffer);
   };
 
   Label(String name, Label * nextLabel = NULL, bool caseSensitive = false);
@@ -43,6 +35,8 @@ public:
   uint8_t getWriteSize();
 
   void write(Buffer * buffer);
+
+  virtual void matched(uint16_t type, uint16_t cls);
 
   void reset();
 
@@ -83,6 +77,49 @@ private:
   bool caseSensitive;
   Label * nextLabel;
   int16_t writeOffset = INVALID_OFFSET;
+};
+
+class HostLabel : public Label {
+
+public:
+
+  HostLabel(ARecord * aRecord, HostNSECRecord * nsecRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+
+  virtual void matched(uint16_t type, uint16_t cls);
+
+private:
+  ARecord * aRecord;
+  HostNSECRecord * nsecRecord;
+};
+
+class ServiceLabel : public Label {
+
+public:
+
+  ServiceLabel(PTRRecord * ptrRecord, SRVRecord * srvRecord, TXTRecord * txtRecord, ARecord * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+
+  virtual void matched(uint16_t type, uint16_t cls);
+
+private:
+  PTRRecord * ptrRecord;
+  SRVRecord * srvRecord;
+  TXTRecord * txtRecord;
+  ARecord * aRecord;
+};
+
+class InstanceLabel : public Label {
+
+public:
+
+  InstanceLabel(SRVRecord * srvRecord, TXTRecord * txtRecord, InstanceNSECRecord * nsecRecord, ARecord * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+
+  virtual void matched(uint16_t type, uint16_t cls);
+
+private:
+  SRVRecord * srvRecord;
+  TXTRecord * txtRecord;
+  InstanceNSECRecord * nsecRecord;
+  ARecord * aRecord;
 };
 
 #endif
