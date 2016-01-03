@@ -10,12 +10,18 @@ bool MDNS::setHostname(String hostname) {
 
   if (success && hostname.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(hostname)) {
     aRecord = new ARecord();
+
     HostNSECRecord * hostNSECRecord = new HostNSECRecord();
 
     records.push_back(aRecord);
     records.push_back(hostNSECRecord);
 
-    labels.push_back(new HostLabel(aRecord, hostNSECRecord, hostname, LOCAL));
+    Label * label = new HostLabel(aRecord, hostNSECRecord, hostname, LOCAL);
+
+    labels.push_back(label);
+
+    aRecord->setLabel(label);
+    hostNSECRecord->setLabel(label);
   } else {
     success = false;
     status = "Invalid hostname";
@@ -52,9 +58,13 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
 
     labels.push_back(instanceLabel);
 
+    ptrRecord->setLabel(serviceLabel);
     ptrRecord->setInstanceLabel(instanceLabel);
+    srvRecord->setLabel(instanceLabel);
     srvRecord->setPort(port);
     srvRecord->setHostLabel(labels.front());
+    txtRecord->setLabel(instanceLabel);
+    instanceNSECRecord->setLabel(instanceLabel);
   } else {
     success = false;
     status = "Invalid name";
@@ -115,10 +125,12 @@ void MDNS::getResponses() {
     while (count++ < header.qdcount && buffer->available() > 0) {
       Label * label = matcher->match(labels, buffer);
 
-      if (buffer->available() >= 4) {
-        label->matched(buffer->readUInt16(), buffer->readUInt16());
-      } else {
-        status = "Buffer underflow at index " + buffer->getOffset();
+      if (label != NULL) {
+        if (buffer->available() >= 4) {
+          label->matched(buffer->readUInt16(), buffer->readUInt16());
+        } else {
+          status = "Buffer underflow at index " + buffer->getOffset();
+        }
       }
     }
   }
@@ -149,25 +161,27 @@ void MDNS::writeResponses() {
     additionalCount += (*i)->isAdditionalRecord()? 1 : 0;
   }
 
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(0x8400);
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(answerCount);
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(additionalCount);
+  if (answerCount > 0) {
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(0x8400);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(answerCount);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(additionalCount);
 
-  for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
-    if ((*i)->isAnswerRecord()) {
-      (*i)->write(buffer);
+    for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+      if ((*i)->isAnswerRecord()) {
+        (*i)->write(buffer);
+      }
+    }
+
+    for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+      if ((*i)->isAdditionalRecord()) {
+        (*i)->write(buffer);
+      }
     }
   }
-
-  for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
-    if ((*i)->isAdditionalRecord()) {
-      (*i)->write(buffer);
-    }
-  }
-
+  
   for (std::vector<Label *>::const_iterator i = labels.begin(); i != labels.end(); ++i) {
     (*i)->reset();
   }
