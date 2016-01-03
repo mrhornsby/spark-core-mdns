@@ -12,7 +12,7 @@ void setup() {
   bool success = mdns.setHostname("core-1");
 
   if (success) {
-    success = mdns.setService("tcp", "http", HTTP_PORT, "Core 1");
+    success = mdns.addService("tcp", "http", HTTP_PORT, "Core 1");
   }
 
   mdns.addTXTEntry("coreid", "1");

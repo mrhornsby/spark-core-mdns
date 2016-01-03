@@ -1,48 +1,80 @@
 #include "MDNS.h"
 
 bool MDNS::setHostname(String hostname) {
-  bool success = hostname.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(hostname);
+  bool success = true;
+
+  if (aRecord != NULL) {
+    success = false;
+    status = "Hostname already set";
+  }
+
+  if (success && hostname.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(hostname)) {
+    aRecord = new ARecord();
+
+    HostNSECRecord * hostNSECRecord = new HostNSECRecord();
+
+    records.push_back(aRecord);
+    records.push_back(hostNSECRecord);
+
+    Label * label = new HostLabel(aRecord, hostNSECRecord, hostname, LOCAL);
+
+    labels.push_back(label);
+
+    aRecord->setLabel(label);
+    hostNSECRecord->setLabel(label);
+  } else {
+    success = false;
+    status = "Invalid hostname";
+  }
 
   if (success) {
-    labels[HOST_NAME] = new Label(hostname, LOCAL);
-
-    success = labels[HOST_NAME]->getSize() == hostname.length();
+    status = "Ok";
   }
 
   return success;
 }
 
-bool MDNS::setService(String protocol, String service, uint16_t port, String instance) {
-  bool success = protocol.length() < MAX_LABEL_SIZE - 1 && service.length() < MAX_LABEL_SIZE - 1 &&
-  instance.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(protocol) && isAlphaDigitHyphen(service) && isNetUnicode(instance);
+bool MDNS::addService(String protocol, String service, uint16_t port, String instance) {
+  bool success = true;
 
-  Label * protoLabel;
+  if (protocol.length() < MAX_LABEL_SIZE - 1 && service.length() < MAX_LABEL_SIZE - 1 &&
+  instance.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(protocol) && isAlphaDigitHyphen(service) && isNetUnicode(instance)) {
 
-  if (success) {
-    protoLabel = new Label("_" + protocol, LOCAL);
+    ptrRecord = new PTRRecord();
+    srvRecord = new SRVRecord();
+    txtRecord = new TXTRecord();
+    InstanceNSECRecord * instanceNSECRecord = new InstanceNSECRecord();
 
-    success = protoLabel->getSize() == protocol.length() + 1;
+    records.push_back(ptrRecord);
+    records.push_back(srvRecord);
+    records.push_back(txtRecord);
+    records.push_back(instanceNSECRecord);
+
+    ServiceLabel * serviceLabel = new ServiceLabel(ptrRecord, srvRecord, txtRecord, aRecord, "_" + service, new Label("_" + protocol, LOCAL));
+
+    labels.push_back(serviceLabel);
+
+    InstanceLabel * instanceLabel = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, serviceLabel, true);
+
+    labels.push_back(instanceLabel);
+
+    ptrRecord->setLabel(serviceLabel);
+    ptrRecord->setInstanceLabel(instanceLabel);
+    srvRecord->setLabel(instanceLabel);
+    srvRecord->setPort(port);
+    srvRecord->setHostLabel(labels.front());
+    txtRecord->setLabel(instanceLabel);
+    instanceNSECRecord->setLabel(instanceLabel);
+  } else {
+    success = false;
+    status = "Invalid name";
   }
-
-  if (success) {
-    labels[SERVICE_NAME] = new Label("_" + service, protoLabel);
-
-    success = labels[SERVICE_NAME]->getSize() == service.length() + 1;
-  }
-
-  if (success) {
-    labels[INSTANCE_NAME] = new Label(instance, labels[SERVICE_NAME], true);
-
-    success = labels[INSTANCE_NAME]->getSize() == instance.length();
-  }
-
-  this->port = port;
 
   return success;
 }
 
 void MDNS::addTXTEntry(String key, String value) {
-  txtData->addEntry(key, value);
+  txtRecord->addEntry(key, value);
 }
 
 bool MDNS::begin() {
@@ -66,13 +98,11 @@ bool MDNS::processQueries() {
 
     udp->flush();
 
-    uint16_t responses = getResponses();
+    getResponses();
 
     buffer->clear();
 
-    if (responses > 0) {
-      writeResponses(responses);
-    }
+    writeResponses();
 
     if (buffer->available() > 0) {
       udp->beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
@@ -86,60 +116,24 @@ bool MDNS::processQueries() {
   return n > 0;
 }
 
-uint16_t MDNS::getResponses() {
-  uint16_t responses = 0;
-
+void MDNS::getResponses() {
   QueryHeader header = readHeader(buffer);
 
   if ((header.flags & 0x8000) == 0 && header.qdcount > 0) {
     uint8_t count = 0;
 
-    while (count++ < header.qdcount) {
-      Query query;
+    while (count++ < header.qdcount && buffer->available() > 0) {
+      Label * label = matcher->match(labels, buffer);
 
-      query.matchedName = matcher->match(buffer);
-      query.name += matcher->getLastName();
-      query.type = buffer->readUInt16();
-      query.cls = buffer->readUInt16();
-
-      //querySet->addEntry(query);
-
-      if (query.matchedName >= 0) {
-        switch (query.matchedName) {
-          case HOST_NAME:
-          if (query.type == A_TYPE || query.type == ANY_TYPE) {
-            responses |= A_FLAG | ADDITIONAL(NSEC_HOST_FLAG);
-          } else if (query.type == AAAA_TYPE) {
-            responses |= NSEC_HOST_FLAG;
-          }
-          break;
-
-          case SERVICE_NAME:
-          if (query.type == PTR_TYPE || query.type == ANY_TYPE) {
-            responses |= PTR_FLAG | ADDITIONAL(SRV_FLAG) | ADDITIONAL(TXT_FLAG) | ADDITIONAL(A_FLAG);
-          }
-          break;
-
-          case INSTANCE_NAME:
-          if (query.type == SRV_TYPE) {
-            responses |= SRV_FLAG | ADDITIONAL(A_FLAG) | ADDITIONAL(NSEC_INSTANCE_FLAG);
-          } else if (query.type == TXT_TYPE) {
-            responses |= TXT_FLAG | ADDITIONAL(NSEC_INSTANCE_FLAG);
-          } else if (query.type == ANY_TYPE) {
-            responses |= SRV_FLAG | TXT_FLAG | ADDITIONAL(A_FLAG) | NSEC_INSTANCE_FLAG;
-          }
-          break;
-
-          default:
-          break;
+      if (label != NULL) {
+        if (buffer->available() >= 4) {
+          label->matched(buffer->readUInt16(), buffer->readUInt16());
+        } else {
+          status = "Buffer underflow at index " + buffer->getOffset();
         }
-      } else if (query.matchedName == BUFFER_UNDERFLOW) {
-        count = header.qdcount;
       }
     }
   }
-
-  return responses;
 }
 
 MDNS::QueryHeader MDNS::readHeader(Buffer * buffer) {
@@ -157,105 +151,44 @@ MDNS::QueryHeader MDNS::readHeader(Buffer * buffer) {
   return header;
 }
 
-void MDNS::writeResponses(uint16_t responses) {
-  // Reset output offsets for name compression
-  for (uint8_t i = 0; i < NAME_COUNT; i++) {
-    labels[i]->reset();
+void MDNS::writeResponses() {
+
+  uint8_t answerCount = 0;
+  uint8_t additionalCount = 0;
+
+  for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+    answerCount += (*i)->isAnswerRecord()? 1 : 0;
+    additionalCount += (*i)->isAdditionalRecord()? 1 : 0;
   }
 
-  // Don't send additional responses where we are already sending answers
-  responses &= ~(responses << FLAG_COUNT);
+  if (answerCount > 0) {
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(0x8400);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(answerCount);
+    buffer->writeUInt16(0x0);
+    buffer->writeUInt16(additionalCount);
 
-  uint8_t answerCount = count(responses);
-  uint8_t additionalCount = count(responses >> FLAG_COUNT);
-
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(0x8400);
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(answerCount);
-  buffer->writeUInt16(0x0);
-  buffer->writeUInt16(additionalCount);
-
-  while (responses > 0) {
-    if ((responses & A_FLAG) != 0) {
-      writeARecord();
-    }
-    if ((responses & PTR_FLAG) != 0) {
-      writePTRRecord();
-    }
-    if ((responses & SRV_FLAG) != 0) {
-      writeSRVRecord();
-    }
-    if ((responses & TXT_FLAG) != 0) {
-      writeTXTRecord();
-    }
-    if ((responses & NSEC_HOST_FLAG) != 0) {
-      writeNSECHostRecord();
-    }
-    if ((responses & NSEC_INSTANCE_FLAG) != 0) {
-      writeNSECInstanceRecord();
+    for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+      if ((*i)->isAnswerRecord()) {
+        (*i)->write(buffer);
+      }
     }
 
-    responses >>= FLAG_COUNT;
+    for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+      if ((*i)->isAdditionalRecord()) {
+        (*i)->write(buffer);
+      }
+    }
   }
-}
-
-void MDNS::writeARecord() {
-  writeRecord(HOST_NAME, A_TYPE, TTL_2MIN);
-  buffer->writeUInt16(4);
-  IPAddress ip = WiFi.localIP();
-  for (int i = 0; i < IP_SIZE; i++) {
-    buffer->writeUInt8(ip[i]);
+  
+  for (std::vector<Label *>::const_iterator i = labels.begin(); i != labels.end(); ++i) {
+    (*i)->reset();
   }
-}
 
-void MDNS::writePTRRecord() {
-  writeRecord(SERVICE_NAME, PTR_TYPE, TTL_75MIN);
-  buffer->writeUInt16(labels[INSTANCE_NAME]->getWriteSize());
-  labels[INSTANCE_NAME]->write(buffer);
-}
-
-void MDNS::writeSRVRecord() {
-  writeRecord(INSTANCE_NAME, SRV_TYPE, TTL_2MIN);
-  buffer->writeUInt16(6 + labels[HOST_NAME]->getWriteSize());
-  buffer->writeUInt16(0);
-  buffer->writeUInt16(0);
-  buffer->writeUInt16(port);
-  labels[HOST_NAME]->write(buffer);
-}
-
-void MDNS::writeTXTRecord() {
-  writeRecord(INSTANCE_NAME, TXT_TYPE, TTL_75MIN);
-  txtData->write(buffer);
-}
-
-void MDNS::writeNSECHostRecord() {
-  writeRecord(HOST_NAME, NSEC_TYPE, TTL_2MIN);
-  buffer->writeUInt16(5);
-  labels[HOST_NAME]->write(buffer);
-  buffer->writeUInt8(0);
-  buffer->writeUInt8(1);
-  buffer->writeUInt8(0x40);
-}
-
-void MDNS::writeNSECInstanceRecord() {
-  writeRecord(INSTANCE_NAME, NSEC_TYPE, TTL_2MIN);
-  buffer->writeUInt16(9);
-  labels[INSTANCE_NAME]->write(buffer);
-  buffer->writeUInt8(0);
-  buffer->writeUInt8(5);
-  buffer->writeUInt8(0);
-  buffer->writeUInt8(0);
-  buffer->writeUInt8(0x80);
-  buffer->writeUInt8(0);
-  buffer->writeUInt8(0x40);
-}
-
-void MDNS::writeRecord(uint8_t nameIndex, uint16_t type, uint32_t ttl) {
-  labels[nameIndex]->write(buffer);
-  buffer->writeUInt16(type);
-  buffer->writeUInt16(IN_CLASS);
-  buffer->writeUInt32(ttl);
+  for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+    (*i)->reset();
+  }
 }
 
 bool MDNS::isAlphaDigitHyphen(String string) {
@@ -284,16 +217,4 @@ bool MDNS::isNetUnicode(String string) {
   }
 
   return result;
-}
-
-uint8_t MDNS::count(uint16_t bits) {
-  uint8_t count = 0;
-
-  for (uint8_t i = 0; i < FLAG_COUNT; i++) {
-    count += bits & 1;
-
-    bits >>= 1;
-  }
-
-  return count;
 }
