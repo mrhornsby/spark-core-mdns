@@ -31,7 +31,7 @@ bool MDNS::setHostname(String hostname) {
   return success;
 }
 
-bool MDNS::addService(String protocol, String service, uint16_t port, String instance) {
+bool MDNS::addService(String protocol, String service, uint16_t port, String instance, std::vector<String> subServices) {
   bool success = true;
   String status = "Ok";
 
@@ -48,30 +48,51 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
     txtRecord = new TXTRecord();
     InstanceNSECRecord * instanceNSECRecord = new InstanceNSECRecord();
 
-    String serviceString = "_" + service + "._" + protocol;
-
-    if (labels[serviceString] == NULL) {
-      labels[serviceString] = new ServiceLabel(aRecord, "_" + service, new Label("_" + protocol, LOCAL));
-    }
-
     records.push_back(ptrRecord);
     records.push_back(srvRecord);
     records.push_back(txtRecord);
     records.push_back(instanceNSECRecord);
 
+    String serviceString = "_" + service + "._" + protocol;
+
+    Label * protocolLabel = new Label("_" + protocol, LOCAL);
+
+    if (labels[serviceString] == NULL) {
+      labels[serviceString] = new ServiceLabel(aRecord, "_" + service, protocolLabel);
+    }
+
     labels[serviceString]->addInstance(ptrRecord, srvRecord, txtRecord);
 
-    InstanceLabel * instanceLabel = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, serviceLabel, true);
+    String instanceString = instance + "._" + service + "._" + protocol;
 
-    labels[instance + "._" + service + "._" + protocol] = instanceLabel;
+    labels[instanceString] = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, serviceLabel, true);
 
-    ptrRecord->setLabel(serviceLabel);
-    ptrRecord->setInstanceLabel(instanceLabel);
-    srvRecord->setLabel(instanceLabel);
+    if (subServices != NULL) {
+      for (std::vector<String>::const_iterator i = subServices.begin(); i != subServices.end(); ++i) {
+        String subServiceString = "_" + *i + "._sub." + serviceString;
+
+        if (labels[subServiceString] == NULL) {
+          labels[subServiceString] = new ServiceLabel(aRecord, "_" + *i, new Label("_sub", protocolLabel));
+        }
+
+        PTRRecord * subPTRRecord = new PTRRecord();
+
+        subPTRRecord->setLabel(labels[subServiceString]);
+        subPTRRecord->setInstanceLabel(labels[instanceString]);
+
+        records.push_back(subPTRRecord);
+
+        labels[subServiceString]->newInstance(subPTRRecord, srvRecord, txtRecord);
+      }
+    }
+
+    ptrRecord->setLabel(labels[serviceString]);
+    ptrRecord->setInstanceLabel(labels[instanceString]);
+    srvRecord->setLabel(labels[instanceString]);
     srvRecord->setPort(port);
     srvRecord->setHostLabel(labels[HOSTNAME]);
-    txtRecord->setLabel(instanceLabel);
-    instanceNSECRecord->setLabel(instanceLabel);
+    txtRecord->setLabel(labels[instanceString]);
+    instanceNSECRecord->setLabel(labels[instanceString]);
   } else {
     status = success? "Invalid name" : status;
     success = false;

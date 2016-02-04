@@ -19,7 +19,7 @@ public:
 
   bool setHostname(String hostname);
 
-  bool addService(String protocol, String service, uint16_t port, String instance);
+  bool addService(String protocol, String service, uint16_t port, String instance, std::vector<String> subServices = NULL);
 
   void addTXTEntry(String key, String value = NULL);
 
