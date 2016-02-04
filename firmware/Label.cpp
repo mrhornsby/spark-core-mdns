@@ -102,6 +102,7 @@ bool Label::Reader::endOfName() {
 
 Label::Iterator::Iterator(Label * label) {
   this->label = label;
+  this->startLabel = label;
   this->size = label->data[0];
 }
 
@@ -127,16 +128,20 @@ bool Label::Iterator::equalsIgnoreCase(uint8_t c) {
   return (c >= 'a' && c <= 'z' && label->data[offset] == c - 32) || (c >= 'A' && c <= 'Z' && label->data[offset] == c + 32);
 }
 
-Label * Label::Matcher::match(std::vector<Label *> labels, Buffer * buffer) {
+Label * Label::Iterator::getStartLabel() {
+  return startLabel;
+}
+
+Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer) {
 
   Iterator * iterators[labels.size()];
 
-  std::vector<Label *>::const_iterator i;
+  std::map<String, Label *>::const_iterator i;
 
   uint8_t idx = 0;
 
   for (i = labels.begin(); i != labels.end(); ++i) {
-    iterators[idx++] = new Iterator(*i);
+    iterators[idx++] = new Iterator(i->second);
   }
 
   Reader * reader = new Reader(buffer);
@@ -164,20 +169,20 @@ Label * Label::Matcher::match(std::vector<Label *> labels, Buffer * buffer) {
 
   buffer->reset();
 
-  int8_t nameIndex = UNKNOWN_NAME;
+  Label * label = NULL;
 
   if (reader->endOfName()) {
     uint8_t idx = 0;
 
-    while (nameIndex == UNKNOWN_NAME && idx < labels.size()) {
+    while (label == NULL && idx < labels.size()) {
       if (iterators[idx]->matched()) {
-        nameIndex = idx;
+        label = iterators[idx]->getStartLabel();
+        Serial.println("idx " + String(idx));
+        delay(10);
       }
 
       idx++;
     }
-  } else {
-    nameIndex = BUFFER_UNDERFLOW;
   }
 
   for (uint8_t i = 0; i < labels.size(); i++) {
@@ -186,54 +191,61 @@ Label * Label::Matcher::match(std::vector<Label *> labels, Buffer * buffer) {
 
   delete reader;
 
-  return nameIndex != UNKNOWN_NAME && nameIndex != BUFFER_UNDERFLOW? labels[nameIndex] : NULL;
+  return label;
 }
 
 void Label::matched(uint16_t type, uint16_t cls) {
+  Serial.println("base label match");
+  delay(10);
 }
 
-HostLabel::HostLabel(ARecord * aRecord, HostNSECRecord * nsecRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
+HostLabel::HostLabel(Record * aRecord, Record * nsecRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->aRecord = aRecord;
   this->nsecRecord = nsecRecord;
 }
 
 void HostLabel::matched(uint16_t type, uint16_t cls) {
-  if (cls == IN_CLASS) {
-    switch(type) {
-      case A_TYPE:
-      case ANY_TYPE:
-      aRecord->setAnswerRecord();
-      nsecRecord->setAdditionalRecord();
-      break;
+  switch(type) {
+    case A_TYPE:
+    case ANY_TYPE:
+    aRecord->setAnswerRecord();
+    nsecRecord->setAdditionalRecord();
+    break;
 
-      default:
-      nsecRecord->setAnswerRecord();
-    }
+    default:
+    nsecRecord->setAnswerRecord();
   }
 }
 
-ServiceLabel::ServiceLabel(PTRRecord * ptrRecord, SRVRecord * srvRecord, TXTRecord * txtRecord, ARecord * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
-  this->ptrRecord = ptrRecord;
-  this->srvRecord = srvRecord;
-  this->txtRecord = txtRecord;
+ServiceLabel::ServiceLabel(Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->aRecord = aRecord;
 }
 
+void ServiceLabel::addInstance(Record * ptrRecord, Record * srvRecord, Record * txtRecord) {
+    ptrRecords.push_back(ptrRecord);
+    srvRecords.push_back(srvRecord);
+    txtRecords.push_back(txtRecord);
+}
+
 void ServiceLabel::matched(uint16_t type, uint16_t cls) {
-  if (cls == IN_CLASS) {
-    switch(type) {
-      case PTR_TYPE:
-      case ANY_TYPE:
-      ptrRecord->setAnswerRecord();
-      srvRecord->setAdditionalRecord();
-      txtRecord->setAdditionalRecord();
-      aRecord->setAdditionalRecord();
-      break;
+  switch(type) {
+    case PTR_TYPE:
+    case ANY_TYPE:
+    for (std::vector<Record *>::const_iterator i = ptrRecords.begin(); i != ptrRecords.end(); ++i) {
+      (*i)->setAnswerRecord();
     }
+    for (std::vector<Record *>::const_iterator i = srvRecords.begin(); i != srvRecords.end(); ++i) {
+      (*i)->setAdditionalRecord();
+    }
+    for (std::vector<Record *>::const_iterator i = txtRecords.begin(); i != txtRecords.end(); ++i) {
+      (*i)->setAdditionalRecord();
+    }
+    aRecord->setAdditionalRecord();
+    break;
   }
 }
 
-InstanceLabel::InstanceLabel(SRVRecord * srvRecord, TXTRecord * txtRecord, InstanceNSECRecord * nsecRecord, ARecord * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
+InstanceLabel::InstanceLabel(Record * srvRecord, Record * txtRecord, Record * nsecRecord, Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->srvRecord = srvRecord;
   this->txtRecord = txtRecord;
   this->nsecRecord = nsecRecord;
@@ -241,31 +253,31 @@ InstanceLabel::InstanceLabel(SRVRecord * srvRecord, TXTRecord * txtRecord, Insta
 }
 
 void InstanceLabel::matched(uint16_t type, uint16_t cls) {
-  if (cls == IN_CLASS) {
-    switch(type) {
-      case SRV_TYPE:
-      srvRecord->setAnswerRecord();
-      txtRecord->setAdditionalRecord();
-      nsecRecord->setAdditionalRecord();
-      aRecord->setAdditionalRecord();
-      break;
+  Serial.println("instance label match");
+  delay(10);
+  switch(type) {
+    case SRV_TYPE:
+    srvRecord->setAnswerRecord();
+    txtRecord->setAdditionalRecord();
+    nsecRecord->setAdditionalRecord();
+    aRecord->setAdditionalRecord();
+    break;
 
-      case TXT_TYPE:
-      txtRecord->setAnswerRecord();
-      srvRecord->setAdditionalRecord();
-      nsecRecord->setAdditionalRecord();
-      aRecord->setAdditionalRecord();
-      break;
+    case TXT_TYPE:
+    txtRecord->setAnswerRecord();
+    srvRecord->setAdditionalRecord();
+    nsecRecord->setAdditionalRecord();
+    aRecord->setAdditionalRecord();
+    break;
 
-      case ANY_TYPE:
-      srvRecord->setAnswerRecord();
-      txtRecord->setAnswerRecord();
-      nsecRecord->setAdditionalRecord();
-      aRecord->setAdditionalRecord();
-      break;
+    case ANY_TYPE:
+    srvRecord->setAnswerRecord();
+    txtRecord->setAnswerRecord();
+    nsecRecord->setAdditionalRecord();
+    aRecord->setAdditionalRecord();
+    break;
 
-      default:
-      nsecRecord->setAnswerRecord();
-    }
+    default:
+    nsecRecord->setAnswerRecord();
   }
 }

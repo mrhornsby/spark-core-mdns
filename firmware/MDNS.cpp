@@ -2,10 +2,11 @@
 
 bool MDNS::setHostname(String hostname) {
   bool success = true;
+  String status = "Ok";
 
-  if (aRecord != NULL) {
-    success = false;
+  if (labels[HOSTNAME]) {
     status = "Hostname already set";
+    success = false;
   }
 
   if (success && hostname.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(hostname)) {
@@ -18,17 +19,13 @@ bool MDNS::setHostname(String hostname) {
 
     Label * label = new HostLabel(aRecord, hostNSECRecord, hostname, LOCAL);
 
-    labels.push_back(label);
+    labels[HOSTNAME] = label;
 
     aRecord->setLabel(label);
     hostNSECRecord->setLabel(label);
   } else {
+    status = success? "Invalid hostname" : status;
     success = false;
-    status = "Invalid hostname";
-  }
-
-  if (success) {
-    status = "Ok";
   }
 
   return success;
@@ -36,38 +33,48 @@ bool MDNS::setHostname(String hostname) {
 
 bool MDNS::addService(String protocol, String service, uint16_t port, String instance) {
   bool success = true;
+  String status = "Ok";
 
-  if (protocol.length() < MAX_LABEL_SIZE - 1 && service.length() < MAX_LABEL_SIZE - 1 &&
+  if (!labels[HOSTNAME]) {
+    status = "Hostname not set";
+    success = false;
+  }
+
+  if (success && protocol.length() < MAX_LABEL_SIZE - 1 && service.length() < MAX_LABEL_SIZE - 1 &&
   instance.length() < MAX_LABEL_SIZE && isAlphaDigitHyphen(protocol) && isAlphaDigitHyphen(service) && isNetUnicode(instance)) {
 
-    ptrRecord = new PTRRecord();
-    srvRecord = new SRVRecord();
+    PTRRecord * ptrRecord = new PTRRecord();
+    SRVRecord * srvRecord = new SRVRecord();
     txtRecord = new TXTRecord();
     InstanceNSECRecord * instanceNSECRecord = new InstanceNSECRecord();
+
+    String serviceString = "_" + service + "._" + protocol;
+
+    if (labels[serviceString] == NULL) {
+      labels[serviceString] = new ServiceLabel(aRecord, "_" + service, new Label("_" + protocol, LOCAL));
+    }
 
     records.push_back(ptrRecord);
     records.push_back(srvRecord);
     records.push_back(txtRecord);
     records.push_back(instanceNSECRecord);
 
-    ServiceLabel * serviceLabel = new ServiceLabel(ptrRecord, srvRecord, txtRecord, aRecord, "_" + service, new Label("_" + protocol, LOCAL));
-
-    labels.push_back(serviceLabel);
+    labels[serviceString]->addInstance(ptrRecord, srvRecord, txtRecord);
 
     InstanceLabel * instanceLabel = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, serviceLabel, true);
 
-    labels.push_back(instanceLabel);
+    labels[instance + "._" + service + "._" + protocol] = instanceLabel;
 
     ptrRecord->setLabel(serviceLabel);
     ptrRecord->setInstanceLabel(instanceLabel);
     srvRecord->setLabel(instanceLabel);
     srvRecord->setPort(port);
-    srvRecord->setHostLabel(labels.front());
+    srvRecord->setHostLabel(labels[HOSTNAME]);
     txtRecord->setLabel(instanceLabel);
     instanceNSECRecord->setLabel(instanceLabel);
   } else {
+    status = success? "Invalid name" : status;
     success = false;
-    status = "Invalid name";
   }
 
   return success;
@@ -125,12 +132,18 @@ void MDNS::getResponses() {
     while (count++ < header.qdcount && buffer->available() > 0) {
       Label * label = matcher->match(labels, buffer);
 
-      if (label != NULL) {
-        if (buffer->available() >= 4) {
-          label->matched(buffer->readUInt16(), buffer->readUInt16());
-        } else {
-          status = "Buffer underflow at index " + buffer->getOffset();
+      if (buffer->available() >= 4) {
+        uint16_t type = buffer->readUInt16();
+        uint16_t cls = buffer->readUInt16();
+
+        if (label != NULL) {
+          Serial.println("query " + String(count) + " type " + String(type) + " cls " + String(cls));
+          delay(10);
+
+          label->matched(type, cls);
         }
+      } else {
+        status = "Buffer underflow at index " + buffer->getOffset();
       }
     }
   }
@@ -157,9 +170,16 @@ void MDNS::writeResponses() {
   uint8_t additionalCount = 0;
 
   for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
-    answerCount += (*i)->isAnswerRecord()? 1 : 0;
-    additionalCount += (*i)->isAdditionalRecord()? 1 : 0;
+    if ((*i)->isAnswerRecord()) {
+      answerCount++;
+    }
+    if ((*i)->isAdditionalRecord()) {
+      additionalCount++;
+    }
   }
+
+  Serial.println("response " + String(answerCount) + " " + String(additionalCount));
+  delay(10);
 
   if (answerCount > 0) {
     buffer->writeUInt16(0x0);
@@ -181,9 +201,9 @@ void MDNS::writeResponses() {
       }
     }
   }
-  
-  for (std::vector<Label *>::const_iterator i = labels.begin(); i != labels.end(); ++i) {
-    (*i)->reset();
+
+  for (std::map<String, Label *>::const_iterator i = labels.begin(); i != labels.end(); ++i) {
+    i->second->reset();
   }
 
   for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {

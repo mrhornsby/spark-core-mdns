@@ -5,6 +5,7 @@
 
 #include "Buffer.h"
 #include "Record.h"
+#include <map>
 #include <vector>
 
 #define DOT '.'
@@ -25,7 +26,7 @@ private:
 public:
   class Matcher {
   public:
-    Label * match(std::vector<Label *> labels, Buffer * buffer);
+    Label * match(std::map<String, Label *> labels, Buffer * buffer);
   };
 
   Label(String name, Label * nextLabel = NULL, bool caseSensitive = false);
@@ -63,7 +64,10 @@ private:
 
     bool matched();
 
+    Label * getStartLabel();
+
   private:
+    Label * startLabel;
     Label * label;
     uint8_t size;
     uint8_t offset = 0;
@@ -83,43 +87,45 @@ class HostLabel : public Label {
 
 public:
 
-  HostLabel(ARecord * aRecord, HostNSECRecord * nsecRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+  HostLabel(Record * aRecord, Record * nsecRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
 
   virtual void matched(uint16_t type, uint16_t cls);
 
 private:
-  ARecord * aRecord;
-  HostNSECRecord * nsecRecord;
+  Record * aRecord;
+  Record * nsecRecord;
 };
 
 class ServiceLabel : public Label {
 
 public:
 
-  ServiceLabel(PTRRecord * ptrRecord, SRVRecord * srvRecord, TXTRecord * txtRecord, ARecord * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+  ServiceLabel(Record * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+
+  void addInstance(Record * ptrRecord, Record * srvRecord, Record * txtRecord);
 
   virtual void matched(uint16_t type, uint16_t cls);
 
 private:
-  PTRRecord * ptrRecord;
-  SRVRecord * srvRecord;
-  TXTRecord * txtRecord;
-  ARecord * aRecord;
+  Record * aRecord;
+  std::vector<Record *> ptrRecords;
+  std::vector<Record *> srvRecords;
+  std::vector<Record *> txtRecords;
 };
 
 class InstanceLabel : public Label {
 
 public:
 
-  InstanceLabel(SRVRecord * srvRecord, TXTRecord * txtRecord, InstanceNSECRecord * nsecRecord, ARecord * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
+  InstanceLabel(Record * srvRecord, Record * txtRecord, Record * nsecRecord, Record * aRecord, String name, Label * nextLabel = NULL, bool caseSensitive = false);
 
   virtual void matched(uint16_t type, uint16_t cls);
 
 private:
-  SRVRecord * srvRecord;
-  TXTRecord * txtRecord;
-  InstanceNSECRecord * nsecRecord;
-  ARecord * aRecord;
+  Record * srvRecord;
+  Record * txtRecord;
+  Record * nsecRecord;
+  Record * aRecord;
 };
 
 #endif
