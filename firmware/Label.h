@@ -60,7 +60,7 @@ private:
   public:
     Iterator(Label * label);
 
-    void match(uint8_t c);
+    bool match(uint8_t c);
 
     bool matched();
 

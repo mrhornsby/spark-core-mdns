@@ -61,29 +61,27 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
       labels[serviceString] = new ServiceLabel(aRecord, "_" + service, protocolLabel);
     }
 
-    labels[serviceString]->addInstance(ptrRecord, srvRecord, txtRecord);
+    ((ServiceLabel *) labels[serviceString])->addInstance(ptrRecord, srvRecord, txtRecord);
 
     String instanceString = instance + "._" + service + "._" + protocol;
 
-    labels[instanceString] = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, serviceLabel, true);
+    labels[instanceString] = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, labels[serviceString], true);
 
-    if (subServices != NULL) {
-      for (std::vector<String>::const_iterator i = subServices.begin(); i != subServices.end(); ++i) {
-        String subServiceString = "_" + *i + "._sub." + serviceString;
+    for (std::vector<String>::const_iterator i = subServices.begin(); i != subServices.end(); ++i) {
+      String subServiceString = "_" + *i + "._sub." + serviceString;
 
-        if (labels[subServiceString] == NULL) {
-          labels[subServiceString] = new ServiceLabel(aRecord, "_" + *i, new Label("_sub", protocolLabel));
-        }
-
-        PTRRecord * subPTRRecord = new PTRRecord();
-
-        subPTRRecord->setLabel(labels[subServiceString]);
-        subPTRRecord->setInstanceLabel(labels[instanceString]);
-
-        records.push_back(subPTRRecord);
-
-        labels[subServiceString]->newInstance(subPTRRecord, srvRecord, txtRecord);
+      if (labels[subServiceString] == NULL) {
+        labels[subServiceString] = new ServiceLabel(aRecord, "_" + *i, new Label("_sub", labels[serviceString]));
       }
+
+      PTRRecord * subPTRRecord = new PTRRecord();
+
+      subPTRRecord->setLabel(labels[subServiceString]);
+      subPTRRecord->setInstanceLabel(labels[instanceString]);
+
+      records.push_back(subPTRRecord);
+
+      ((ServiceLabel *) labels[subServiceString])->addInstance(subPTRRecord, srvRecord, txtRecord);
     }
 
     ptrRecord->setLabel(labels[serviceString]);
@@ -158,8 +156,6 @@ void MDNS::getResponses() {
         uint16_t cls = buffer->readUInt16();
 
         if (label != NULL) {
-          Serial.println("query " + String(count) + " type " + String(type) + " cls " + String(cls));
-          delay(10);
 
           label->matched(type, cls);
         }
@@ -198,9 +194,6 @@ void MDNS::writeResponses() {
       additionalCount++;
     }
   }
-
-  Serial.println("response " + String(answerCount) + " " + String(additionalCount));
-  delay(10);
 
   if (answerCount > 0) {
     buffer->writeUInt16(0x0);

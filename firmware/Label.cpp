@@ -106,7 +106,7 @@ Label::Iterator::Iterator(Label * label) {
   this->size = label->data[0];
 }
 
-void Label::Iterator::match(uint8_t c) {
+bool Label::Iterator::match(uint8_t c) {
   if (matches) {
     while (offset > size && label) {
       label = label->nextLabel;
@@ -118,6 +118,8 @@ void Label::Iterator::match(uint8_t c) {
 
     offset++;
   }
+
+  return matches;
 }
 
 bool Label::Iterator::matched() {
@@ -159,13 +161,13 @@ Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer)
       uint8_t c = reader->next();
 
       for (uint8_t i = 0; i < labels.size(); i++) {
-
         iterators[i]->match(c);
       }
 
       idx++;
     }
   }
+
 
   buffer->reset();
 
@@ -177,8 +179,6 @@ Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer)
     while (label == NULL && idx < labels.size()) {
       if (iterators[idx]->matched()) {
         label = iterators[idx]->getStartLabel();
-        Serial.println("idx " + String(idx));
-        delay(10);
       }
 
       idx++;
@@ -195,8 +195,6 @@ Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer)
 }
 
 void Label::matched(uint16_t type, uint16_t cls) {
-  Serial.println("base label match");
-  delay(10);
 }
 
 HostLabel::HostLabel(Record * aRecord, Record * nsecRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
@@ -253,8 +251,6 @@ InstanceLabel::InstanceLabel(Record * srvRecord, Record * txtRecord, Record * ns
 }
 
 void InstanceLabel::matched(uint16_t type, uint16_t cls) {
-  Serial.println("instance label match");
-  delay(10);
   switch(type) {
     case SRV_TYPE:
     srvRecord->setAnswerRecord();
