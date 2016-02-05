@@ -57,9 +57,9 @@ private:
   Label * label;
   uint16_t type;
   uint32_t ttl;
-  bool answerRecord;
-  bool additionalRecord;
-  bool knownRecord;
+  bool answerRecord = false;
+  bool additionalRecord = false;
+  bool knownRecord = false;
 };
 
 class ARecord : public Record {

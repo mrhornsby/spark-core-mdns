@@ -6,18 +6,20 @@
 #include "Buffer.h"
 #include "Label.h"
 #include "Record.h"
+#include <map>
 #include <vector>
 
 #define MDNS_PORT 5353
 
 #define BUFFER_SIZE 512
+#define HOSTNAME ""
 
 class MDNS {
 public:
 
   bool setHostname(String hostname);
 
-  bool addService(String protocol, String service, uint16_t port, String instance);
+  bool addService(String protocol, String service, uint16_t port, String instance, std::vector<String> subServices = std::vector<String>());
 
   void addTXTEntry(String key, String value = NULL);
 
@@ -44,13 +46,10 @@ private:
   Label::Matcher * matcher = new Label::Matcher();
 
   ARecord * aRecord;
-  PTRRecord * ptrRecord;
-  SRVRecord * srvRecord;
   TXTRecord * txtRecord;
 
-  std::vector<Label *> labels;
+  std::map<String, Label *> labels;
   std::vector<Record *> records;
-
   String status = "Ok";
 
   QueryHeader readHeader(Buffer * buffer);
@@ -58,12 +57,6 @@ private:
   void writeResponses();
   bool isAlphaDigitHyphen(String string);
   bool isNetUnicode(String string);
-
-  struct Query {
-    int8_t matchedName;
-    uint16_t type;
-    uint16_t cls;
-  };
 };
 
 #endif

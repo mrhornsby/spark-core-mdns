@@ -1,21 +1,36 @@
 #include "MDNS/MDNS.h"
 
+#include <vector>
+
 #define HTTP_PORT 80
+#define ALT_HTTP_PORT 8080
 
 MDNS mdns;
 
 TCPServer server = TCPServer(HTTP_PORT);
+TCPServer altServer = TCPServer(ALT_HTTP_PORT);
 
 void setup() {
   server.begin();
+  altServer.begin();
+
+  std::vector<String> subServices;
+
+  subServices.push_back("printer");
 
   bool success = mdns.setHostname("core-1");
 
   if (success) {
-    success = mdns.addService("tcp", "http", HTTP_PORT, "Core 1");
+    success = mdns.addService("tcp", "http", HTTP_PORT, "Core 1", subServices);
   }
 
-  mdns.addTXTEntry("coreid", "1");
+  mdns.addTXTEntry("normal");
+
+  if (success) {
+    success = mdns.addService("tcp", "http", ALT_HTTP_PORT, "Core alt");
+  }
+
+  mdns.addTXTEntry("alt");
 
   if (success) {
     success = mdns.begin();
@@ -34,5 +49,16 @@ void loop() {
     client.flush();
     delay(5);
     client.stop();
+  }
+
+  TCPClient altClient = altServer.available();
+
+  if (altClient){
+    while (altClient.read() != -1);
+
+    altClient.write("HTTP/1.1 200 Ok\n\n<html><body><h1>Alternative port ok!</h1></body></html>\n\n");
+    altClient.flush();
+    delay(5);
+    altClient.stop();
   }
 }
