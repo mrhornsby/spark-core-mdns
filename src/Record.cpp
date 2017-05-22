@@ -126,7 +126,7 @@ TXTRecord::TXTRecord():Record(TXT_TYPE, TTL_75MIN) {
 void TXTRecord::addEntry(String key, String value) {
   String entry = key;
 
-  if (value.length() > 0) {
+  if (value == NULL || value.length() > 0) {
     entry += '=';
     entry += value;
   }

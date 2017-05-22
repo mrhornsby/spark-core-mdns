@@ -1,4 +1,4 @@
-#include "MDNS/MDNS.h"
+#include "MDNS.h"
 
 #include <vector>
 
