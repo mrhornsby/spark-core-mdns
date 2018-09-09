@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 
+#define MDNS_ADDRESS IPAddress(224, 0, 0, 251)
 #define MDNS_PORT 5353
 
 #define BUFFER_SIZE 512
@@ -23,7 +24,7 @@ public:
 
   void addTXTEntry(String key, String value = "");
 
-  bool begin();
+  bool begin(bool announce = false);
 
   bool processQueries();
 

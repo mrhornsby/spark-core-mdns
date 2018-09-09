@@ -33,7 +33,8 @@ void setup() {
   mdns.addTXTEntry("alt");
 
   if (success) {
-    success = mdns.begin();
+    // Announce on startup
+    success = mdns.begin(true);
   }
 }
 

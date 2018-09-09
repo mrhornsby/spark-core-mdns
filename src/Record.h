@@ -7,6 +7,7 @@
 #include <vector>
 
 #define IN_CLASS 1
+#define CACHE_FLUSH 0x8000
 
 #define A_TYPE 0x01
 #define PTR_TYPE 0x0c
@@ -46,7 +47,7 @@ public:
 
 protected:
 
-  Record(uint16_t type, uint32_t ttl);
+  Record(uint16_t type, uint16_t cls, uint32_t ttl);
 
   Label * getLabel();
 
@@ -56,6 +57,7 @@ private:
 
   Label * label;
   uint16_t type;
+  uint16_t cls;
   uint32_t ttl;
   bool answerRecord = false;
   bool additionalRecord = false;

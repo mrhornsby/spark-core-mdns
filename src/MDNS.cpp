@@ -103,15 +103,23 @@ void MDNS::addTXTEntry(String key, String value) {
   txtRecord->addEntry(key, value);
 }
 
-bool MDNS::begin() {
+bool MDNS::begin(bool announce) {
   // Wait for WiFi to connect
   while (!WiFi.ready()) {
   }
 
   udp->begin(MDNS_PORT);
-  udp->joinMulticast(IPAddress(224, 0, 0, 251));
+  udp->joinMulticast(MDNS_ADDRESS);
 
-  // TODO: Probing + announcing
+  // TODO: Probing
+
+  if (announce) {
+    for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
+      (*i)->setAnswerRecord();
+    }
+
+    writeResponses();
+  }
 
   return true;
 }
@@ -129,14 +137,6 @@ bool MDNS::processQueries() {
     buffer->clear();
 
     writeResponses();
-
-    if (buffer->available() > 0) {
-      udp->beginPacket(IPAddress(224, 0, 0, 251), MDNS_PORT);
-
-      buffer->write(udp);
-
-      udp->endPacket();
-    }
   }
 
   return n > 0;
@@ -214,6 +214,14 @@ void MDNS::writeResponses() {
         (*i)->write(buffer);
       }
     }
+  }
+
+  if (buffer->available() > 0) {
+    udp->beginPacket(MDNS_ADDRESS, MDNS_PORT);
+
+    buffer->write(udp);
+
+    udp->endPacket();
   }
 
   for (std::map<String, Label *>::const_iterator i = labels.begin(); i != labels.end(); ++i) {
