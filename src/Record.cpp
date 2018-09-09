@@ -2,14 +2,21 @@
 
 #include "Label.h"
 
-Record::Record(uint16_t type, uint16_t cls, uint32_t ttl) {
+Record::Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce) {
   this->type = type;
   this->cls = cls;
   this->ttl = ttl;
+  this->announce = announce;
 }
 
 void Record::setLabel(Label * label) {
   this->label = label;
+}
+
+void Record::announceRecord() {
+  if (this->announce) {
+    this->answerRecord = true;
+  }
 }
 
 void Record::setAnswerRecord() {
@@ -90,16 +97,16 @@ void InstanceNSECRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt8(0x40);
 }
 
-PTRRecord::PTRRecord():Record(PTR_TYPE, IN_CLASS, TTL_75MIN) {
+PTRRecord::PTRRecord(bool meta):Record(PTR_TYPE, IN_CLASS, TTL_75MIN, !meta) {
 }
 
 void PTRRecord::writeSpecific(Buffer * buffer) {
-  buffer->writeUInt16(instanceLabel->getWriteSize());
-  instanceLabel->write(buffer);
+  buffer->writeUInt16(targetLabel->getWriteSize());
+  targetLabel->write(buffer);
 }
 
-void PTRRecord::setInstanceLabel(Label * label) {
-  instanceLabel = label;
+void PTRRecord::setTargetLabel(Label * label) {
+  targetLabel = label;
 }
 
 SRVRecord::SRVRecord():Record(SRV_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {

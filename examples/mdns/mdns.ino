@@ -21,7 +21,7 @@ void setup() {
   bool success = mdns.setHostname("core-1");
 
   if (success) {
-    success = mdns.addService("tcp", "http", HTTP_PORT, "Core 1", subServices);
+    success = mdns.addService("tcp", "customhttp", HTTP_PORT, "Core 1", subServices);
   }
 
   mdns.addTXTEntry("normal");

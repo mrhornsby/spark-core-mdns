@@ -14,6 +14,7 @@
 
 #define BUFFER_SIZE 512
 #define HOSTNAME ""
+#define META_SERVICE "_services._dns-sd._udp"
 
 class MDNS {
 public:
@@ -44,6 +45,7 @@ private:
 
   Label * ROOT = new Label("");
   Label * LOCAL = new Label("local", ROOT);
+  MetaLabel * META = new MetaLabel("_services", new Label("_dns-sd", new Label("_udp", LOCAL)));
   Label::Matcher * matcher = new Label::Matcher();
 
   ARecord * aRecord;

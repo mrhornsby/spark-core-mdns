@@ -20,6 +20,7 @@ bool MDNS::setHostname(String hostname) {
     Label * label = new HostLabel(aRecord, hostNSECRecord, hostname, LOCAL);
 
     labels[HOSTNAME] = label;
+    labels[META_SERVICE] = META;
 
     aRecord->setLabel(label);
     hostNSECRecord->setLabel(label);
@@ -47,11 +48,13 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
     SRVRecord * srvRecord = new SRVRecord();
     txtRecord = new TXTRecord();
     InstanceNSECRecord * instanceNSECRecord = new InstanceNSECRecord();
+    PTRRecord * enumerationRecord = new PTRRecord(true);
 
     records.push_back(ptrRecord);
     records.push_back(srvRecord);
     records.push_back(txtRecord);
     records.push_back(instanceNSECRecord);
+    records.push_back(enumerationRecord);
 
     String serviceString = "_" + service + "._" + protocol;
 
@@ -66,6 +69,7 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
     String instanceString = instance + "._" + service + "._" + protocol;
 
     labels[instanceString] = new InstanceLabel(srvRecord, txtRecord, instanceNSECRecord, aRecord, instance, labels[serviceString], true);
+    META->addService(enumerationRecord);
 
     for (std::vector<String>::const_iterator i = subServices.begin(); i != subServices.end(); ++i) {
       String subServiceString = "_" + *i + "._sub." + serviceString;
@@ -75,22 +79,30 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
       }
 
       PTRRecord * subPTRRecord = new PTRRecord();
+      PTRRecord * enumerationSubPTRRecord = new PTRRecord(true);
 
       subPTRRecord->setLabel(labels[subServiceString]);
-      subPTRRecord->setInstanceLabel(labels[instanceString]);
+      subPTRRecord->setTargetLabel(labels[instanceString]);
+
+      enumerationSubPTRRecord->setLabel(META);
+      enumerationSubPTRRecord->setTargetLabel(labels[subServiceString]);
 
       records.push_back(subPTRRecord);
+      records.push_back(enumerationSubPTRRecord);
 
       ((ServiceLabel *) labels[subServiceString])->addInstance(subPTRRecord, srvRecord, txtRecord);
+      META->addService(enumerationSubPTRRecord);
     }
 
     ptrRecord->setLabel(labels[serviceString]);
-    ptrRecord->setInstanceLabel(labels[instanceString]);
+    ptrRecord->setTargetLabel(labels[instanceString]);
     srvRecord->setLabel(labels[instanceString]);
     srvRecord->setPort(port);
     srvRecord->setHostLabel(labels[HOSTNAME]);
     txtRecord->setLabel(labels[instanceString]);
     instanceNSECRecord->setLabel(labels[instanceString]);
+    enumerationRecord->setLabel(META);
+    enumerationRecord->setTargetLabel(labels[serviceString]);
   } else {
     status = success? "Invalid name" : status;
     success = false;
@@ -115,7 +127,7 @@ bool MDNS::begin(bool announce) {
 
   if (announce) {
     for (std::vector<Record *>::const_iterator i = records.begin(); i != records.end(); ++i) {
-      (*i)->setAnswerRecord();
+      (*i)->announceRecord();
     }
 
     writeResponses();

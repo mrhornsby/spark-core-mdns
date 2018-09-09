@@ -31,6 +31,8 @@ public:
 
   void setLabel(Label * label);
 
+  void announceRecord();
+
   void setAnswerRecord();
 
   bool isAnswerRecord();
@@ -47,7 +49,7 @@ public:
 
 protected:
 
-  Record(uint16_t type, uint16_t cls, uint32_t ttl);
+  Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce = true);
 
   Label * getLabel();
 
@@ -59,6 +61,7 @@ private:
   uint16_t type;
   uint16_t cls;
   uint32_t ttl;
+  bool announce;
   bool answerRecord = false;
   bool additionalRecord = false;
   bool knownRecord = false;
@@ -104,15 +107,15 @@ class PTRRecord : public Record {
 
 public:
 
-  PTRRecord();
+  PTRRecord(bool meta = false);
 
   virtual void writeSpecific(Buffer * buffer);
 
-  void setInstanceLabel(Label * label);
+  void setTargetLabel(Label * label);
 
 private:
 
-  Label * instanceLabel;
+  Label * targetLabel;
 
 };
 
