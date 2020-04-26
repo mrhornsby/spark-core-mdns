@@ -1,6 +1,6 @@
 #include "Label.h"
 
-Label::Label(String name, Label * nextLabel, bool caseSensitive) {
+mdns::Label::Label(String name, Label * nextLabel, bool caseSensitive) {
   data = (uint8_t *) malloc(name.length() + 1);
 
   if (data) {
@@ -16,11 +16,11 @@ Label::Label(String name, Label * nextLabel, bool caseSensitive) {
   this->caseSensitive = caseSensitive;
 }
 
-uint8_t Label::getSize() {
+uint8_t mdns::Label::getSize() {
   return data[0];
 }
 
-uint8_t Label::getWriteSize() {
+uint8_t mdns::Label::getWriteSize() {
   Label * label = this;
   uint8_t size = 0;
 
@@ -37,7 +37,7 @@ uint8_t Label::getWriteSize() {
   return size;
 }
 
-void Label::write(Buffer * buffer) {
+void mdns::Label::write(Buffer * buffer) {
   Label * label = this;
 
   while (label) {
@@ -58,7 +58,7 @@ void Label::write(Buffer * buffer) {
   }
 }
 
-void Label::reset() {
+void mdns::Label::reset() {
   Label * label = this;
 
   while (label != NULL) {
@@ -68,15 +68,15 @@ void Label::reset() {
   }
 }
 
-Label::Reader::Reader(Buffer * buffer) {
+mdns::Label::Reader::Reader(Buffer * buffer) {
   this->buffer = buffer;
 }
 
-bool Label::Reader::hasNext() {
+bool mdns::Label::Reader::hasNext() {
   return c != END_OF_NAME && buffer->available() > 0;
 }
 
-uint8_t Label::Reader::next() {
+uint8_t mdns::Label::Reader::next() {
   c = buffer->readUInt8();
 
   while ((c & LABEL_POINTER) == LABEL_POINTER) {
@@ -96,17 +96,17 @@ uint8_t Label::Reader::next() {
   return c;
 }
 
-bool Label::Reader::endOfName() {
+bool mdns::Label::Reader::endOfName() {
   return c == END_OF_NAME;
 }
 
-Label::Iterator::Iterator(Label * label) {
+mdns::Label::Iterator::Iterator(Label * label) {
   this->label = label;
   this->startLabel = label;
   this->size = label->data[0];
 }
 
-bool Label::Iterator::match(uint8_t c) {
+bool mdns::Label::Iterator::match(uint8_t c) {
   if (matches) {
     while (offset > size && label) {
       label = label->nextLabel;
@@ -122,19 +122,19 @@ bool Label::Iterator::match(uint8_t c) {
   return matches;
 }
 
-bool Label::Iterator::matched() {
+bool mdns::Label::Iterator::matched() {
   return matches;
 }
 
-bool Label::Iterator::equalsIgnoreCase(uint8_t c) {
+bool mdns::Label::Iterator::equalsIgnoreCase(uint8_t c) {
   return (c >= 'a' && c <= 'z' && label->data[offset] == c - 32) || (c >= 'A' && c <= 'Z' && label->data[offset] == c + 32);
 }
 
-Label * Label::Iterator::getStartLabel() {
+mdns::Label * mdns::Label::Iterator::getStartLabel() {
   return startLabel;
 }
 
-Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer) {
+mdns::Label * mdns::Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer) {
 
   Iterator * iterators[labels.size()];
 
@@ -194,15 +194,15 @@ Label * Label::Matcher::match(std::map<String, Label *> labels, Buffer * buffer)
   return label;
 }
 
-void Label::matched(uint16_t type, uint16_t cls) {
+void mdns::Label::matched(uint16_t type, uint16_t cls) {
 }
 
-HostLabel::HostLabel(Record * aRecord, Record * nsecRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
+mdns::HostLabel::HostLabel(Record * aRecord, Record * nsecRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->aRecord = aRecord;
   this->nsecRecord = nsecRecord;
 }
 
-void HostLabel::matched(uint16_t type, uint16_t cls) {
+void mdns::HostLabel::matched(uint16_t type, uint16_t cls) {
   switch(type) {
     case A_TYPE:
     case ANY_TYPE:
@@ -215,17 +215,17 @@ void HostLabel::matched(uint16_t type, uint16_t cls) {
   }
 }
 
-ServiceLabel::ServiceLabel(Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
+mdns::ServiceLabel::ServiceLabel(Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->aRecord = aRecord;
 }
 
-void ServiceLabel::addInstance(Record * ptrRecord, Record * srvRecord, Record * txtRecord) {
+void mdns::ServiceLabel::addInstance(Record * ptrRecord, Record * srvRecord, Record * txtRecord) {
     ptrRecords.push_back(ptrRecord);
     srvRecords.push_back(srvRecord);
     txtRecords.push_back(txtRecord);
 }
 
-void ServiceLabel::matched(uint16_t type, uint16_t cls) {
+void mdns::ServiceLabel::matched(uint16_t type, uint16_t cls) {
   switch(type) {
     case PTR_TYPE:
     case ANY_TYPE:
@@ -243,14 +243,14 @@ void ServiceLabel::matched(uint16_t type, uint16_t cls) {
   }
 }
 
-InstanceLabel::InstanceLabel(Record * srvRecord, Record * txtRecord, Record * nsecRecord, Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
+mdns::InstanceLabel::InstanceLabel(Record * srvRecord, Record * txtRecord, Record * nsecRecord, Record * aRecord, String name, Label * nextLabel, bool caseSensitive):Label(name, nextLabel, caseSensitive) {
   this->srvRecord = srvRecord;
   this->txtRecord = txtRecord;
   this->nsecRecord = nsecRecord;
   this->aRecord = aRecord;
 }
 
-void InstanceLabel::matched(uint16_t type, uint16_t cls) {
+void mdns::InstanceLabel::matched(uint16_t type, uint16_t cls) {
   switch(type) {
     case SRV_TYPE:
     srvRecord->setAnswerRecord();
@@ -278,15 +278,15 @@ void InstanceLabel::matched(uint16_t type, uint16_t cls) {
   }
 }
 
-MetaLabel::MetaLabel(String name, Label * nextLabel):Label(name, nextLabel) {
+mdns::MetaLabel::MetaLabel(String name, Label * nextLabel):Label(name, nextLabel) {
   // Do nothing
 }
 
-void MetaLabel::addService(Record * ptrRecord) {
+void mdns::MetaLabel::addService(Record * ptrRecord) {
   records.push_back(ptrRecord);
 }
 
-void MetaLabel::matched(uint16_t type, uint16_t cls) {
+void mdns::MetaLabel::matched(uint16_t type, uint16_t cls) {
   switch(type) {
     case PTR_TYPE:
     case ANY_TYPE:
@@ -296,3 +296,4 @@ void MetaLabel::matched(uint16_t type, uint16_t cls) {
       break;
   }
 }
+

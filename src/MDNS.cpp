@@ -1,6 +1,6 @@
 #include "MDNS.h"
 
-bool MDNS::setHostname(String hostname) {
+bool mdns::MDNS::setHostname(String hostname) {
   bool success = true;
   String status = "Ok";
 
@@ -32,7 +32,7 @@ bool MDNS::setHostname(String hostname) {
   return success;
 }
 
-bool MDNS::addService(String protocol, String service, uint16_t port, String instance, std::vector<String> subServices) {
+bool mdns::MDNS::addService(String protocol, String service, uint16_t port, String instance, std::vector<String> subServices) {
   bool success = true;
   String status = "Ok";
 
@@ -111,11 +111,11 @@ bool MDNS::addService(String protocol, String service, uint16_t port, String ins
   return success;
 }
 
-void MDNS::addTXTEntry(String key, String value) {
+void mdns::MDNS::addTXTEntry(String key, String value) {
   txtRecord->addEntry(key, value);
 }
 
-bool MDNS::begin(bool announce) {
+bool mdns::MDNS::begin(bool announce) {
   // Wait for WiFi to connect
   while (!WiFi.ready()) {
   }
@@ -136,7 +136,7 @@ bool MDNS::begin(bool announce) {
   return true;
 }
 
-bool MDNS::processQueries() {
+bool mdns::MDNS::processQueries() {
   uint16_t n = udp->parsePacket();
 
   if (n > 0) {
@@ -154,7 +154,7 @@ bool MDNS::processQueries() {
   return n > 0;
 }
 
-void MDNS::getResponses() {
+void mdns::MDNS::getResponses() {
   QueryHeader header = readHeader(buffer);
 
   if ((header.flags & 0x8000) == 0 && header.qdcount > 0) {
@@ -178,7 +178,7 @@ void MDNS::getResponses() {
   }
 }
 
-MDNS::QueryHeader MDNS::readHeader(Buffer * buffer) {
+mdns::MDNS::QueryHeader mdns::MDNS::readHeader(Buffer * buffer) {
   QueryHeader header;
 
   if (buffer->available() >= 12) {
@@ -193,7 +193,7 @@ MDNS::QueryHeader MDNS::readHeader(Buffer * buffer) {
   return header;
 }
 
-void MDNS::writeResponses() {
+void mdns::MDNS::writeResponses() {
 
   uint8_t answerCount = 0;
   uint8_t additionalCount = 0;
@@ -245,7 +245,7 @@ void MDNS::writeResponses() {
   }
 }
 
-bool MDNS::isAlphaDigitHyphen(String string) {
+bool mdns::MDNS::isAlphaDigitHyphen(String string) {
   bool result = true;
 
   uint8_t idx = 0;
@@ -259,7 +259,7 @@ bool MDNS::isAlphaDigitHyphen(String string) {
   return result;
 }
 
-bool MDNS::isNetUnicode(String string) {
+bool mdns::MDNS::isNetUnicode(String string) {
   bool result = true;
 
   uint8_t idx = 0;

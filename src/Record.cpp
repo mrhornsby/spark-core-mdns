@@ -2,44 +2,44 @@
 
 #include "Label.h"
 
-Record::Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce) {
+mdns::Record::Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce) {
   this->type = type;
   this->cls = cls;
   this->ttl = ttl;
   this->announce = announce;
 }
 
-void Record::setLabel(Label * label) {
+void mdns::Record::setLabel(Label * label) {
   this->label = label;
 }
 
-void Record::announceRecord() {
+void mdns::Record::announceRecord() {
   if (this->announce) {
     this->answerRecord = true;
   }
 }
 
-void Record::setAnswerRecord() {
+void mdns::Record::setAnswerRecord() {
   this->answerRecord = true;
 }
 
-bool Record::isAnswerRecord() {
+bool mdns::Record::isAnswerRecord() {
   return answerRecord && !knownRecord;
 }
 
-void Record::setAdditionalRecord() {
+void mdns::Record::setAdditionalRecord() {
   this->additionalRecord = true;
 }
 
-bool Record::isAdditionalRecord() {
+bool mdns::Record::isAdditionalRecord() {
   return additionalRecord && !answerRecord && !knownRecord;
 }
 
-void Record::setKnownRecord() {
+void mdns::Record::setKnownRecord() {
   this->knownRecord = true;
 }
 
-void Record::write(Buffer * buffer) {
+void mdns::Record::write(Buffer * buffer) {
   label->write(buffer);
   buffer->writeUInt16(type);
   buffer->writeUInt16(cls);
@@ -47,20 +47,20 @@ void Record::write(Buffer * buffer) {
   writeSpecific(buffer);
 }
 
-void Record::reset() {
+void mdns::Record::reset() {
   this->answerRecord = false;
   this->additionalRecord = false;
   this->knownRecord = false;
 }
 
-Label * Record::getLabel() {
+mdns::Label * mdns::Record::getLabel() {
   return label;
 }
 
-ARecord::ARecord():Record(A_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
+mdns::ARecord::ARecord():Record(A_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
 }
 
-void ARecord::writeSpecific(Buffer * buffer) {
+void mdns::ARecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt16(4);
   IPAddress ip = WiFi.localIP();
   for (int i = 0; i < IP_SIZE; i++) {
@@ -68,13 +68,13 @@ void ARecord::writeSpecific(Buffer * buffer) {
   }
 }
 
-NSECRecord::NSECRecord():Record(NSEC_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
+mdns::NSECRecord::NSECRecord():Record(NSEC_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
 }
 
-HostNSECRecord::HostNSECRecord():NSECRecord() {
+mdns::HostNSECRecord::HostNSECRecord():NSECRecord() {
 }
 
-void HostNSECRecord::writeSpecific(Buffer * buffer) {
+void mdns::HostNSECRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt16(5);
   getLabel()->write(buffer);
   buffer->writeUInt8(0);
@@ -82,10 +82,10 @@ void HostNSECRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt8(0x40);
 }
 
-InstanceNSECRecord::InstanceNSECRecord():NSECRecord() {
+mdns::InstanceNSECRecord::InstanceNSECRecord():NSECRecord() {
 }
 
-void InstanceNSECRecord::writeSpecific(Buffer * buffer) {
+void mdns::InstanceNSECRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt16(9);
   getLabel()->write(buffer);
   buffer->writeUInt8(0);
@@ -97,22 +97,22 @@ void InstanceNSECRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt8(0x40);
 }
 
-PTRRecord::PTRRecord(bool meta):Record(PTR_TYPE, IN_CLASS, TTL_75MIN, !meta) {
+mdns::PTRRecord::PTRRecord(bool meta):Record(PTR_TYPE, IN_CLASS, TTL_75MIN, !meta) {
 }
 
-void PTRRecord::writeSpecific(Buffer * buffer) {
+void mdns::PTRRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt16(targetLabel->getWriteSize());
   targetLabel->write(buffer);
 }
 
-void PTRRecord::setTargetLabel(Label * label) {
+void mdns::PTRRecord::setTargetLabel(Label * label) {
   targetLabel = label;
 }
 
-SRVRecord::SRVRecord():Record(SRV_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
+mdns::SRVRecord::SRVRecord():Record(SRV_TYPE, IN_CLASS | CACHE_FLUSH, TTL_2MIN) {
 }
 
-void SRVRecord::writeSpecific(Buffer * buffer) {
+void mdns::SRVRecord::writeSpecific(Buffer * buffer) {
   buffer->writeUInt16(6 + hostLabel->getWriteSize());
   buffer->writeUInt16(0);
   buffer->writeUInt16(0);
@@ -120,18 +120,18 @@ void SRVRecord::writeSpecific(Buffer * buffer) {
   hostLabel->write(buffer);
 }
 
-void SRVRecord::setHostLabel(Label * label) {
+void mdns::SRVRecord::setHostLabel(Label * label) {
   hostLabel = label;
 }
 
-void SRVRecord::setPort(uint16_t port) {
+void mdns::SRVRecord::setPort(uint16_t port) {
   this->port = port;
 }
 
-TXTRecord::TXTRecord():Record(TXT_TYPE, IN_CLASS | CACHE_FLUSH, TTL_75MIN) {
+mdns::TXTRecord::TXTRecord():Record(TXT_TYPE, IN_CLASS | CACHE_FLUSH, TTL_75MIN) {
 }
 
-void TXTRecord::addEntry(String key, String value) {
+void mdns::TXTRecord::addEntry(String key, String value) {
   String entry = key;
 
   if (value == NULL || value.length() > 0) {
@@ -142,7 +142,7 @@ void TXTRecord::addEntry(String key, String value) {
   data.push_back(entry);
 }
 
-void TXTRecord::writeSpecific(Buffer * buffer) {
+void mdns::TXTRecord::writeSpecific(Buffer * buffer) {
   uint16_t size = 0;
 
   std::vector<String>::const_iterator i;

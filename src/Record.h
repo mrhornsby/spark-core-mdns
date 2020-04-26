@@ -23,133 +23,135 @@
 
 #define IP_SIZE 4
 
-class Label;
-
-class Record {
-
-public:
-
-  void setLabel(Label * label);
-
-  void announceRecord();
-
-  void setAnswerRecord();
-
-  bool isAnswerRecord();
-
-  void setAdditionalRecord();
-
-  bool isAdditionalRecord();
-
-  void setKnownRecord();
-
-  void write(Buffer * buffer);
-
-  void reset();
-
-protected:
-
-  Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce = true);
-
-  Label * getLabel();
-
-  virtual void writeSpecific(Buffer * buffer) = 0;
-
-private:
-
-  Label * label;
-  uint16_t type;
-  uint16_t cls;
-  uint32_t ttl;
-  bool announce;
-  bool answerRecord = false;
-  bool additionalRecord = false;
-  bool knownRecord = false;
-};
-
-class ARecord : public Record {
-
-public:
-
-  ARecord();
-
-  virtual void writeSpecific(Buffer * buffer);
-};
-
-class NSECRecord : public Record {
-
-public:
-
-  NSECRecord();
-
-  virtual void writeSpecific(Buffer * buffer) = 0;
-};
-
-class HostNSECRecord : public NSECRecord {
-
-public:
-
-  HostNSECRecord();
-
-  virtual void writeSpecific(Buffer * buffer);
-};
-
-class InstanceNSECRecord : public NSECRecord {
-
-public:
-
-  InstanceNSECRecord();
-
-  virtual void writeSpecific(Buffer * buffer);
-};
-
-class PTRRecord : public Record {
-
-public:
-
-  PTRRecord(bool meta = false);
-
-  virtual void writeSpecific(Buffer * buffer);
-
-  void setTargetLabel(Label * label);
-
-private:
-
-  Label * targetLabel;
-
-};
-
-class SRVRecord : public Record {
-
-public:
-
-  SRVRecord();
-
-  virtual void writeSpecific(Buffer * buffer);
-
-  void setHostLabel(Label * label);
-
-  void setPort(uint16_t port);
-
-private:
-
-  Label * hostLabel;
-  uint16_t port;
-};
-
-class TXTRecord : public Record {
-
-public:
-
-  TXTRecord();
-
-  virtual void writeSpecific(Buffer * buffer);
-
-  void addEntry(String key, String value = "");
-
-private:
-
-  std::vector<String> data;
-};
+namespace mdns {
+    class Label;
+    
+    class Record {
+    
+    public:
+    
+      void setLabel(Label * label);
+    
+      void announceRecord();
+    
+      void setAnswerRecord();
+    
+      bool isAnswerRecord();
+    
+      void setAdditionalRecord();
+    
+      bool isAdditionalRecord();
+    
+      void setKnownRecord();
+    
+      void write(Buffer * buffer);
+    
+      void reset();
+    
+    protected:
+    
+      Record(uint16_t type, uint16_t cls, uint32_t ttl, bool announce = true);
+    
+      Label * getLabel();
+    
+      virtual void writeSpecific(Buffer * buffer) = 0;
+    
+    private:
+    
+      Label * label;
+      uint16_t type;
+      uint16_t cls;
+      uint32_t ttl;
+      bool announce;
+      bool answerRecord = false;
+      bool additionalRecord = false;
+      bool knownRecord = false;
+    };
+    
+    class ARecord : public Record {
+    
+    public:
+    
+      ARecord();
+    
+      virtual void writeSpecific(Buffer * buffer);
+    };
+    
+    class NSECRecord : public Record {
+    
+    public:
+    
+      NSECRecord();
+    
+      virtual void writeSpecific(Buffer * buffer) = 0;
+    };
+    
+    class HostNSECRecord : public NSECRecord {
+    
+    public:
+    
+      HostNSECRecord();
+    
+      virtual void writeSpecific(Buffer * buffer);
+    };
+    
+    class InstanceNSECRecord : public NSECRecord {
+    
+    public:
+    
+      InstanceNSECRecord();
+    
+      virtual void writeSpecific(Buffer * buffer);
+    };
+    
+    class PTRRecord : public Record {
+    
+    public:
+    
+      PTRRecord(bool meta = false);
+    
+      virtual void writeSpecific(Buffer * buffer);
+    
+      void setTargetLabel(Label * label);
+    
+    private:
+    
+      Label * targetLabel;
+    
+    };
+    
+    class SRVRecord : public Record {
+    
+    public:
+    
+      SRVRecord();
+    
+      virtual void writeSpecific(Buffer * buffer);
+    
+      void setHostLabel(Label * label);
+    
+      void setPort(uint16_t port);
+    
+    private:
+    
+      Label * hostLabel;
+      uint16_t port;
+    };
+    
+    class TXTRecord : public Record {
+    
+    public:
+    
+      TXTRecord();
+    
+      virtual void writeSpecific(Buffer * buffer);
+    
+      void addEntry(String key, String value = "");
+    
+    private:
+    
+      std::vector<String> data;
+    };
+}
 
 #endif
